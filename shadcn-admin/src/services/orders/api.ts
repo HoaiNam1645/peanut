@@ -202,7 +202,7 @@ export type CreateOrderLineItemPayload = {
 
 export type CreateLabelShipPayload = {
   order_type: 'label_ship'
-  product_type: 'Wood'
+  product_type: 'Print'
   ref_id: string
   api_key: string
   seller_ref: string
@@ -217,7 +217,7 @@ export type CreateLabelShipPayload = {
 
 export type CreateSellerShipPayload = {
   order_type: 'seller_ship'
-  product_type: 'Wood'
+  product_type: 'Print'
   ref_id: string
   api_key: string
   seller_ref: string

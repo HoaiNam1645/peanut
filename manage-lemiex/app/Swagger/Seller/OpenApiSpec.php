@@ -31,12 +31,12 @@ namespace App\Swagger\Seller;
  *     description="Dang nhap, dang xuat, thong tin user"
  * )
  * @OA\Tag(
- *     name="Product - Wood",
- *     description="San pham go - Lay styles, sizes, variants (khong co color)"
+ *     name="Product - Print",
+ *     description="San pham in - Lay styles, sizes, variants"
  * )
  * @OA\Tag(
  *     name="Create Order",
- *     description="Tao don hang go (Label Ship / Seller Ship)"
+ *     description="Tao don hang in (Label Ship / Seller Ship)"
  * )
  * @OA\Tag(
  *     name="Update Order",

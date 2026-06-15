@@ -4,13 +4,13 @@ namespace App\Enums;
 
 class OrderType
 {
-    const WOOD = 'Wood';
+    const PRINT = 'Print';
     const TUMBLER = 'Tumbler';
 
     public static function all(): array
     {
         return [
-            self::WOOD,
+            self::PRINT,
             self::TUMBLER,
         ];
     }

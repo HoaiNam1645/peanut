@@ -16,7 +16,7 @@ class ProductCategoryType
     public static function labels(): array
     {
         return [
-            self::WOOD => 'Wood (Gỗ)',
+            self::WOOD => 'Print (In)',
         ];
     }
 

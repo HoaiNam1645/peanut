@@ -649,7 +649,7 @@ export function ShirtOrderForm({ mode }: ShirtOrderFormProps) {
       if (mode === 'label-ship') {
         const payload: CreateLabelShipPayload = {
           order_type: 'label_ship',
-          product_type: 'Wood',
+          product_type: 'Print',
           ref_id: values.ref_id,
           api_key: values.api_key,
           seller_ref: values.seller_ref,
@@ -673,7 +673,7 @@ export function ShirtOrderForm({ mode }: ShirtOrderFormProps) {
       } else {
         const payload: CreateSellerShipPayload = {
           order_type: 'seller_ship',
-          product_type: 'Wood',
+          product_type: 'Print',
           ref_id: values.ref_id,
           api_key: values.api_key,
           seller_ref: values.seller_ref,

@@ -3,141 +3,23 @@
 namespace App\Swagger\Seller\Docs;
 
 /**
- * ==================== WOOD PRODUCT APIs ====================
+ * ==================== PRINT PRODUCT — FLOW CHỌN VARIANT ====================
  *
- * @OA\Get(
- *     path="/api/styles",
- *     summary="Danh sách styles (Wood)",
- *     description="Lấy danh sách distinct style của các variants sản phẩm gỗ (vd: Rectangle, Circle, Custom Shape...). Chỉ trả variants active=true thuộc category_type='wood'.",
- *     operationId="getStyles",
- *     tags={"Product - Wood"},
- *     @OA\Parameter(name="product_id", in="query", description="Lọc theo product cụ thể", @OA\Schema(type="integer")),
- *     @OA\Response(
- *         response=200,
- *         description="Thành công",
- *         @OA\JsonContent(
- *             @OA\Property(property="code", type="integer", example=200),
- *             @OA\Property(property="status", type="boolean", example=true),
- *             @OA\Property(property="data", type="array", @OA\Items(type="string", example="Rectangle"))
- *         )
- *     ),
- *     @OA\Response(response=500, description="Server error")
- * )
+ * Luồng chọn variant cho tạo đơn (giống màn tạo đơn): Product → Size → Variant.
+ *   • Step 1: GET /api/products                              — chọn product (id, name)
+ *   • Step 2: GET /api/sizes?product_id={id}                 — các size của product đã chọn
+ *   • Step 3: GET /api/products/variants?product_id={id}&size={size}  — resolve ra variant (lấy variant_id)
+ *   • Step 4: GET /api/products/variants/{variantId}         — chi tiết variant đã chọn
  *
- * @OA\Get(
- *     path="/api/sizes",
- *     operationId="getProductSizes",
- *     tags={"Product - Wood"},
- *     summary="Danh sách kích thước (Wood)",
- *     description="Lấy danh sách distinct size của variants gỗ (vd: 4x6, 6x8, 8x10). Hỗ trợ filter cascade theo style.",
- *     @OA\Parameter(name="style", in="query", description="Lọc theo style (exact match)", @OA\Schema(type="string", example="Rectangle")),
- *     @OA\Parameter(name="product_id", in="query", description="Lọc theo product cụ thể", @OA\Schema(type="integer")),
- *     @OA\Response(
- *         response=200,
- *         description="Thành công",
- *         @OA\JsonContent(
- *             @OA\Property(property="code", type="integer", example=200),
- *             @OA\Property(property="status", type="boolean", example=true),
- *             @OA\Property(property="data", type="array", @OA\Items(type="string", example="4x6"))
- *         )
- *     ),
- *     @OA\Response(response=500, description="Server error")
- * )
- *
- * @OA\Get(
- *     path="/api/brands",
- *     operationId="getBrands",
- *     tags={"Product - Wood"},
- *     summary="Danh sách brand (Wood)",
- *     description="Step 3 trong flow chọn variant. Distinct products.brand đã filter theo style/size đã chọn trước đó.",
- *     @OA\Parameter(name="style", in="query", description="Filter cascade", @OA\Schema(type="string", example="Rectangle")),
- *     @OA\Parameter(name="size", in="query", description="Filter cascade", @OA\Schema(type="string", example="4x6")),
- *     @OA\Parameter(name="product_id", in="query", description="Filter theo product cụ thể", @OA\Schema(type="integer")),
- *     @OA\Response(
- *         response=200,
- *         description="Thành công",
- *         @OA\JsonContent(
- *             @OA\Property(property="code", type="integer", example=200),
- *             @OA\Property(property="status", type="boolean", example=true),
- *             @OA\Property(property="data", type="array", @OA\Items(type="string", example="Wecat Wood"))
- *         )
- *     ),
- *     @OA\Response(response=500, description="Server error")
- * )
- *
- * @OA\Get(
- *     path="/api/products-simple",
- *     operationId="getProductsSimple",
- *     tags={"Product - Wood"},
- *     summary="Danh sách products đơn giản (Wood)",
- *     description="Step 4 trong flow chọn variant. Trả về products khớp filter (style/size/brand). Mỗi product có id/name/brand/style/mockup/template_url — không phân trang.",
- *     @OA\Parameter(name="style", in="query", description="Filter cascade", @OA\Schema(type="string", example="Rectangle")),
- *     @OA\Parameter(name="size", in="query", description="Filter cascade", @OA\Schema(type="string", example="4x6")),
- *     @OA\Parameter(name="brand", in="query", description="Filter cascade", @OA\Schema(type="string", example="Wecat Wood")),
- *     @OA\Response(
- *         response=200,
- *         description="Thành công",
- *         @OA\JsonContent(
- *             @OA\Property(property="code", type="integer", example=200),
- *             @OA\Property(property="status", type="boolean", example=true),
- *             @OA\Property(property="data", type="array", @OA\Items(type="object",
- *                 @OA\Property(property="id", type="integer", example=4),
- *                 @OA\Property(property="name", type="string", example="Wood Sign Rectangle"),
- *                 @OA\Property(property="brand", type="string", example="Wecat Wood"),
- *                 @OA\Property(property="style", type="string", example="Rectangle"),
- *                 @OA\Property(property="mockup", type="string", example="https://..."),
- *                 @OA\Property(property="template_url", type="string", example="https://...")
- *             ))
- *         )
- *     ),
- *     @OA\Response(response=500, description="Server error")
- * )
- *
- * @OA\Get(
- *     path="/api/all-variants",
- *     operationId="getAllVariantsSimple",
- *     tags={"Product - Wood"},
- *     summary="Variants gỗ (step cuối — chọn variant)",
- *     description="Step 5 trong flow chọn variant. Filter cascade theo style → size → brand → product_id để narrow xuống 1 variant duy nhất. Field color luôn null vì gỗ không có màu.",
- *     @OA\Parameter(name="style", in="query", description="Filter cascade", @OA\Schema(type="string", example="Rectangle")),
- *     @OA\Parameter(name="size", in="query", description="Filter cascade", @OA\Schema(type="string", example="4x6")),
- *     @OA\Parameter(name="brand", in="query", description="Filter cascade", @OA\Schema(type="string", example="Wecat Wood")),
- *     @OA\Parameter(name="product_id", in="query", description="Filter theo product cụ thể", @OA\Schema(type="integer")),
- *     @OA\Parameter(name="search", in="query", description="Tìm exact match theo variant_id/sku/style/product name", @OA\Schema(type="string")),
- *     @OA\Parameter(name="per_page", in="query", description="Số lượng/trang (max 200)", @OA\Schema(type="integer", default=50)),
- *     @OA\Response(
- *         response=200,
- *         description="Thành công",
- *         @OA\JsonContent(
- *             @OA\Property(property="status", type="string", example="success"),
- *             @OA\Property(property="data", type="array", @OA\Items(type="object",
- *                 @OA\Property(property="id", type="integer", example=4),
- *                 @OA\Property(property="name", type="string", example="Wood Sign Rectangle"),
- *                 @OA\Property(property="brand", type="string", example="Wecat Wood"),
- *                 @OA\Property(property="variant_id", type="string", example="WOOD-RECT-4X6"),
- *                 @OA\Property(property="sku", type="string", example="WD-R-4X6"),
- *                 @OA\Property(property="style", type="string", example="Rectangle"),
- *                 @OA\Property(property="size", type="string", example="4x6"),
- *                 @OA\Property(property="color", type="string", nullable=true, example=null, description="Luôn null cho wood")
- *             )),
- *             @OA\Property(property="pagination", type="object",
- *                 @OA\Property(property="current_page", type="integer"),
- *                 @OA\Property(property="per_page", type="integer"),
- *                 @OA\Property(property="total", type="integer"),
- *                 @OA\Property(property="last_page", type="integer")
- *             )
- *         )
- *     ),
- *     @OA\Response(response=500, description="Server error")
- * )
+ * 4 endpoint dưới được gom trong tag "Product - Print" theo đúng thứ tự 4 bước.
  *
  * ==================== CATALOG ====================
  * @OA\Get(
  *     path="/api/products",
  *     operationId="sellerGetProducts",
- *     tags={"Catalog"},
- *     summary="Danh sách sản phẩm theo category",
- *     description="Trả về toàn bộ products (KHÔNG phân trang) đã sort theo tên. Mặc định category='wood'. Yêu cầu products.view.",
+ *     tags={"Product - Print", "Catalog"},
+ *     summary="Step 1 — Danh sách product (chọn product)",
+ *     description="Bước 1 của flow chọn variant: trả về toàn bộ products (KHÔNG phân trang) đã sort theo tên — lấy id + name để đổ vào dropdown Product. Mặc định category='wood'. Yêu cầu products.view.",
  *     security={{"bearerAuth":{}}},
  *     @OA\Parameter(name="status", in="query", description="Lọc theo status (active boolean)", @OA\Schema(type="boolean")),
  *     @OA\Parameter(name="search", in="query", description="LIKE match theo name", @OA\Schema(type="string")),
@@ -161,6 +43,25 @@ namespace App\Swagger\Seller\Docs;
  *             ))
  *         )
  *     )
+ * )
+ *
+ * @OA\Get(
+ *     path="/api/sizes",
+ *     operationId="getProductSizes",
+ *     tags={"Product - Print"},
+ *     summary="Step 2 — Size theo product",
+ *     description="Bước 2 của flow: trả về danh sách distinct size của các variant active thuộc product đã chọn ở step 1 (vd: S, M, L, XL, 2XL...). Truyền product_id để lấy đúng size của product đó.",
+ *     @OA\Parameter(name="product_id", in="query", required=true, description="ID product đã chọn ở step 1", @OA\Schema(type="integer", example=4)),
+ *     @OA\Response(
+ *         response=200,
+ *         description="Thành công",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="code", type="integer", example=200),
+ *             @OA\Property(property="status", type="boolean", example=true),
+ *             @OA\Property(property="data", type="array", @OA\Items(type="string", example="2XL"))
+ *         )
+ *     ),
+ *     @OA\Response(response=500, description="Server error")
  * )
  *
  * @OA\Get(
@@ -215,9 +116,9 @@ namespace App\Swagger\Seller\Docs;
  * @OA\Get(
  *     path="/api/products/variants",
  *     operationId="sellerGetProductVariants",
- *     tags={"Catalog"},
- *     summary="Danh sách variants có phân trang",
- *     description="Mặc định chỉ trả variants active=true. Sort theo product_id → color → size. Yêu cầu products.variants.",
+ *     tags={"Product - Print", "Catalog"},
+ *     summary="Step 3 — Resolve variant theo product + size",
+ *     description="Bước 3 của flow: lọc variants theo product_id + size (dùng per_page=1) để ra đúng 1 variant, rồi lấy variant_id từ kết quả để gọi step 4. Mặc định chỉ trả active=true. Sort theo product_id → color → size. Yêu cầu products.variants.",
  *     security={{"bearerAuth":{}}},
  *     @OA\Parameter(name="per_page", in="query", @OA\Schema(type="integer", default=20)),
  *     @OA\Parameter(name="variant_id", in="query", description="LIKE match", @OA\Schema(type="string")),
@@ -242,11 +143,11 @@ namespace App\Swagger\Seller\Docs;
  * @OA\Get(
  *     path="/api/products/variants/{variantId}",
  *     operationId="sellerGetVariantDetail",
- *     tags={"Catalog"},
- *     summary="Chi tiết variant theo variant_id (string code)",
- *     description="Lookup bằng variant_id string (vd 'WOOD-RECT-4X6'), KHÔNG phải primary key. Trả về kèm tier pricing đã group theo tier_id.",
+ *     tags={"Product - Print", "Catalog"},
+ *     summary="Step 4 — Chi tiết variant",
+ *     description="Bước 4 của flow: lookup bằng variant_id string (vd 'PJ0005'), KHÔNG phải primary key. Trả về full_name, product_name + tier pricing đã group theo tier_id. Dùng để hiển thị variant đã chọn.",
  *     security={{"bearerAuth":{}}},
- *     @OA\Parameter(name="variantId", in="path", required=true, @OA\Schema(type="string"), description="Variant code (vd: G5000-BLK-S, WOOD-RECT-4X6)"),
+ *     @OA\Parameter(name="variantId", in="path", required=true, @OA\Schema(type="string"), description="Variant code (vd: PJ0005, G5000-BLK-S)"),
  *     @OA\Response(
  *         response=200,
  *         description="Thành công",
@@ -313,15 +214,15 @@ namespace App\Swagger\Seller\Docs;
  *     operationId="sellerCreateProduct",
  *     tags={"Catalog"},
  *     summary="Tạo sản phẩm mới (kèm variants + tier pricing)",
- *     description="Tạo product gỗ kèm tối thiểu 0+ variants. Mỗi variant có thể đính kèm tier pricing. Yêu cầu permission products.create.",
+ *     description="Tạo product in kèm tối thiểu 0+ variants. Mỗi variant có thể đính kèm tier pricing. Yêu cầu permission products.create.",
  *     security={{"bearerAuth":{}}},
  *     @OA\RequestBody(
  *         required=true,
  *         @OA\JsonContent(
  *             required={"name"},
- *             @OA\Property(property="name", type="string", maxLength=255, example="Hộp gỗ khắc laser - Premium"),
+ *             @OA\Property(property="name", type="string", maxLength=255, example="Áo thun in - Premium"),
  *             @OA\Property(property="style", type="string", maxLength=255, example="Rectangle", description="Style mặc định cho product (variant có thể override)"),
- *             @OA\Property(property="brand", type="string", maxLength=255, example="Wecat Wood"),
+ *             @OA\Property(property="brand", type="string", maxLength=255, example="Wecat Print"),
  *             @OA\Property(property="category_type", type="string", enum={"embroidery", "print", "wood"}, default="wood"),
  *             @OA\Property(property="status", type="boolean", default=true),
  *             @OA\Property(property="mockup", type="string", format="url", maxLength=500, example="https://..."),
@@ -333,10 +234,10 @@ namespace App\Swagger\Seller\Docs;
  *                 description="Danh sách variants (tuỳ chọn)",
  *                 @OA\Items(type="object",
  *                     required={"variant_id"},
- *                     @OA\Property(property="variant_id", type="string", maxLength=255, example="WOOD-BOX-S-NAT", description="Phải UNIQUE"),
+ *                     @OA\Property(property="variant_id", type="string", maxLength=255, example="PRINT-BOX-S-NAT", description="Phải UNIQUE"),
  *                     @OA\Property(property="sku", type="string", maxLength=255, example="SKU-BOX-S-NAT"),
  *                     @OA\Property(property="style", type="string", maxLength=255, example="Box-S"),
- *                     @OA\Property(property="color", type="string", maxLength=100, nullable=true, description="Wood luôn null"),
+ *                     @OA\Property(property="color", type="string", maxLength=100, nullable=true, description="Có thể null tuỳ loại sản phẩm"),
  *                     @OA\Property(property="size", type="string", maxLength=50, example="S"),
  *                     @OA\Property(property="stock", type="integer", minimum=0, example=100),
  *                     @OA\Property(property="active", type="boolean", default=true),
@@ -371,7 +272,7 @@ namespace App\Swagger\Seller\Docs;
  *     operationId="sellerDownloadImportTemplate",
  *     tags={"Catalog"},
  *     summary="Tải template CSV để import sản phẩm",
- *     description="Tải file CSV mẫu có sẵn header + 3 dòng dữ liệu mẫu cho gỗ. Yêu cầu permission products.import.",
+ *     description="Tải file CSV mẫu có sẵn header + 3 dòng dữ liệu mẫu cho sản phẩm in. Yêu cầu permission products.import.",
  *     security={{"bearerAuth":{}}},
  *     @OA\Response(
  *         response=200,

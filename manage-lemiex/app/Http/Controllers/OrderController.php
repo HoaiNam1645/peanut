@@ -416,7 +416,7 @@ class OrderController extends Controller
                 'shipping_service' => $validated['shipping_service'] ?? ShippingService::USPS,
                 'shipping_label' => null, // No shipping label for NO DESIGN
                 'note' => $validated['note'] ?? null,
-                'order_type' => OrderType::WOOD,
+                'order_type' => OrderType::PRINT,
                 'product_type' => $validated['product_type'] ?? null,
                 'payment_status' => OrderPaymentStatus::PENDING,
                 'extra_fee' => OrderConstants::DEFAULT_EXTRA_FEE,
@@ -551,7 +551,7 @@ class OrderController extends Controller
                 'shipping_service' => $validated['shipping_service'] ?? ShippingService::USPS,
                 'shipping_label' => $validated['shipping_label'], // Required for LABEL SHIP
                 'note' => $validated['note'] ?? null,
-                'order_type' => OrderType::WOOD,
+                'order_type' => OrderType::PRINT,
                 'product_type' => $validated['product_type'] ?? null,
                 'payment_status' => OrderPaymentStatus::PENDING,
                 'extra_fee' => OrderConstants::DEFAULT_EXTRA_FEE,
@@ -731,7 +731,7 @@ class OrderController extends Controller
                 'shipping_service' => $validated['shipping_service'] ?? ShippingService::USPS,
                 'shipping_label' => null, // No shipping label for SELLER SHOP
                 'note' => $validated['note'] ?? null,
-                'order_type' => OrderType::WOOD,
+                'order_type' => OrderType::PRINT,
                 'product_type' => $validated['product_type'] ?? null,
                 'payment_status' => OrderPaymentStatus::PENDING,
                 'extra_fee' => OrderConstants::DEFAULT_EXTRA_FEE,
@@ -868,7 +868,7 @@ class OrderController extends Controller
                 'shipping_service' => $validated['shipping_service'] ?? ShippingService::USPS,
                 'shipping_label' => $validated['shipping_label'],
                 'note' => $validated['note'] ?? null,
-                'order_type' => OrderType::WOOD,
+                'order_type' => OrderType::PRINT,
                 'product_type' => $validated['product_type'] ?? null,
                 'payment_status' => OrderPaymentStatus::PENDING,
                 'extra_fee' => 0.00, // No extra fee for Tumbler
@@ -1043,7 +1043,7 @@ class OrderController extends Controller
                 'shipping_service' => $validated['shipping_service'] ?? ShippingService::USPS,
                 'shipping_label' => null,
                 'note' => $validated['note'] ?? null,
-                'order_type' => OrderType::WOOD,
+                'order_type' => OrderType::PRINT,
                 'product_type' => $validated['product_type'] ?? null,
                 'payment_status' => OrderPaymentStatus::PENDING,
                 'extra_fee' => 0.00,

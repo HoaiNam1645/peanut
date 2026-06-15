@@ -16,11 +16,11 @@ namespace App\Swagger\Seller\Docs;
  *         @OA\JsonContent(
  *             @OA\Examples(
  *                 example="LABEL_SHIP",
- *                 summary="Đơn LABEL_SHIP (gỗ) - Có sẵn nhãn vận chuyển, KHÔNG cần địa chỉ",
+ *                 summary="Đơn LABEL_SHIP (in) - Có sẵn nhãn vận chuyển, KHÔNG cần địa chỉ",
  *                 value={
  *                     "api_key": "shpat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
  *                     "order_type": "label_ship",
- *                     "product_type": "Wood",
+ *                     "product_type": "Print",
  *                     "ref_id": "ORDER-12345",
  *                     "seller_ref": "SHOP-ORDER-12345",
  *                     "order_status": "new_order",
@@ -31,8 +31,8 @@ namespace App\Swagger\Seller\Docs;
  *                     "note": "Ghi chú đơn hàng",
  *                     "line_items": {
  *                         {
- *                             "variant_id": "WOOD-BOX-S-NAT",
- *                             "product_name": "Hộp gỗ khắc laser - S",
+ *                             "variant_id": "PRINT-BOX-S-NAT",
+ *                             "product_name": "Áo thun in - S",
  *                             "quantity": 1,
  *                             "mockup": "https://example.com/mockup.jpg",
  *                             "print_files": {
@@ -44,11 +44,11 @@ namespace App\Swagger\Seller\Docs;
  *             ),
  *             @OA\Examples(
  *                 example="SELLER_SHIP",
- *                 summary="Đơn SELLER_SHIP (gỗ) - Seller tự ship, cần địa chỉ + design",
+ *                 summary="Đơn SELLER_SHIP (in) - Seller tự ship, cần địa chỉ + design",
  *                 value={
  *                     "api_key": "shpat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
  *                     "order_type": "seller_ship",
- *                     "product_type": "Wood",
+ *                     "product_type": "Print",
  *                     "ref_id": "ORDER-12345",
  *                     "seller_ref": "SHOP-ORDER-12345",
  *                     "order_status": "new_order",
@@ -68,8 +68,8 @@ namespace App\Swagger\Seller\Docs;
  *                     },
  *                     "line_items": {
  *                         {
- *                             "variant_id": "WOOD-BOX-S-NAT",
- *                             "product_name": "Hộp gỗ khắc laser - S",
+ *                             "variant_id": "PRINT-BOX-S-NAT",
+ *                             "product_name": "Áo thun in - S",
  *                             "quantity": 1,
  *                             "mockup": "https://example.com/mockup.jpg",
  *                             "print_files": {
@@ -156,8 +156,8 @@ namespace App\Swagger\Seller\Docs;
  *                     "note": "Cập nhật ghi chú đơn hàng",
  *                     "line_items": {
  *                         {
- *                             "variant_id": "WOOD-BOX-S-NAT",
- *                             "product_name": "Hộp gỗ khắc laser - S",
+ *                             "variant_id": "PRINT-BOX-S-NAT",
+ *                             "product_name": "Áo thun in - S",
  *                             "quantity": 2,
  *                             "mockup": "https://example.com/mockup.jpg",
  *                             "print_files": {
@@ -192,8 +192,8 @@ namespace App\Swagger\Seller\Docs;
  *                     },
  *                     "line_items": {
  *                         {
- *                             "variant_id": "WOOD-BOX-S-NAT",
- *                             "product_name": "Hộp gỗ khắc laser - S",
+ *                             "variant_id": "PRINT-BOX-S-NAT",
+ *                             "product_name": "Áo thun in - S",
  *                             "quantity": 1,
  *                             "mockup": "https://example.com/mockup.jpg",
  *                             "print_files": {
