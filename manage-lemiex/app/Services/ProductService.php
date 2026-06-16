@@ -164,6 +164,7 @@ class ProductService
         return [
             'base_cost',
             'seller_shipping',
+            'tiktok_shipping',
             'priority_shipping',
             'shipping_cost',
         ];
@@ -613,16 +614,16 @@ class ProductService
         }
 
         // Sample data rows — wood laser engraving products
-        // Prices per tier: base_cost, seller_shipping, priority_shipping, shipping_cost
+        // Prices per tier: base_cost, seller_shipping, tiktok_shipping, priority_shipping, shipping_cost
         $tierPrices = [
             // Tier 0 (Silver)
-            ['5.00', '4.99', '7.99', '5.99'],
+            ['5.00', '4.99', '4.99', '7.99', '5.99'],
             // Tier 1 (Gold)
-            ['4.80', '4.50', '7.50', '5.50'],
+            ['4.80', '4.50', '4.50', '7.50', '5.50'],
             // Tier 2 (Platinum)
-            ['4.60', '4.00', '7.00', '5.00'],
+            ['4.60', '4.00', '4.00', '7.00', '5.00'],
             // Tier 3 (Diamond)
-            ['4.40', '3.50', '6.50', '4.50'],
+            ['4.40', '3.50', '3.50', '6.50', '4.50'],
         ];
 
         $baseRow = static fn(string $variantId, string $sku, string $size, string $stock) => [
