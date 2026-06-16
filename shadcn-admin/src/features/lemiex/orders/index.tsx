@@ -446,21 +446,14 @@ export function LemiexOrders() {
           ? await buyLabelSingle(ids[0])
           : await buyLabelBatch(ids)
 
-      if (ids.length === 1) {
-        toast.success(
-          ordersMessages.labelCreated.replace(
-            '{tracking}',
-            response.data?.tracking_number || ordersMessages.status.na
-          )
+      // ShipDVX create-orders is async for both single and batch — no tracking number
+      // is returned (it arrives later via webhook), so report the dispatch, not tracking.
+      toast.success(
+        ordersMessages.labelJobsDispatched.replace(
+          '{count}',
+          String(response.data?.dispatched || ids.length)
         )
-      } else {
-        toast.success(
-          ordersMessages.labelJobsDispatched.replace(
-            '{count}',
-            String(response.data?.dispatched || ids.length)
-          )
-        )
-      }
+      )
 
       setBuyLabelConfirmOpen(false)
       setSelectedOrderIds([])

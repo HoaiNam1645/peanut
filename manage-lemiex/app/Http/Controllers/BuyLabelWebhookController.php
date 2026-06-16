@@ -43,8 +43,10 @@ class BuyLabelWebhookController extends Controller
             $payload = is_array($decoded) ? $decoded : $request->all();
         }
 
-        // Temporary diagnostic: log the raw body to confirm the provider's exact envelope.
-        Log::info('ShipDVX webhook raw', [
+        // Temporary diagnostic (warning level so it survives LOG_LEVEL=warning): log the
+        // raw body + content-type to confirm the provider's exact envelope. Revert to info
+        // once the real webhook mapping is confirmed in production.
+        Log::warning('ShipDVX webhook raw', [
             'content_type' => $request->header('Content-Type'),
             'body' => mb_substr((string) $request->getContent(), 0, 2000),
         ]);
@@ -62,7 +64,8 @@ class BuyLabelWebhookController extends Controller
             : ($dataStatus ?: $topStatus);
         $data = $payload['data'] ?? [];
 
-        Log::info('ShipDVX webhook received', [
+        // Temporary: warning level so we can confirm parsed fields under LOG_LEVEL=warning.
+        Log::warning('ShipDVX webhook received', [
             'order_number' => $orderNumber,
             'provider_order_id' => $providerOrderId,
             'status' => $status,
