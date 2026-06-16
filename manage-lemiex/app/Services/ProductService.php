@@ -308,7 +308,7 @@ class ProductService
             $errors[] = "Line {$lineNumber}: variant_id is required";
         }
 
-        $numericFields = ['stock', 'weight', 'length', 'width', 'height', 'supplier_price'];
+        $numericFields = ['stock', 'weight', 'length', 'width', 'height', 'supplier_price', 'chest_inch', 'chest_cm', 'length_inch', 'length_cm', 'neck_inch', 'neck_cm'];
         foreach ($numericFields as $field) {
             if (isset($data[$field]) && $data[$field] !== '' && !is_numeric($data[$field])) {
                 $errors[] = "Line {$lineNumber}: {$field} must be numeric";
@@ -455,6 +455,12 @@ class ProductService
             'width' => isset($row['width']) && $row['width'] !== '' ? (int)$row['width'] : null,
             'height' => isset($row['height']) && $row['height'] !== '' ? (int)$row['height'] : null,
             'supplier_price' => isset($row['supplier_price']) && $row['supplier_price'] !== '' ? (float)$row['supplier_price'] : null,
+            'chest_inch' => isset($row['chest_inch']) && $row['chest_inch'] !== '' ? (float)$row['chest_inch'] : null,
+            'chest_cm' => isset($row['chest_cm']) && $row['chest_cm'] !== '' ? (float)$row['chest_cm'] : null,
+            'length_inch' => isset($row['length_inch']) && $row['length_inch'] !== '' ? (float)$row['length_inch'] : null,
+            'length_cm' => isset($row['length_cm']) && $row['length_cm'] !== '' ? (float)$row['length_cm'] : null,
+            'neck_inch' => isset($row['neck_inch']) && $row['neck_inch'] !== '' ? (float)$row['neck_inch'] : null,
+            'neck_cm' => isset($row['neck_cm']) && $row['neck_cm'] !== '' ? (float)$row['neck_cm'] : null,
         ];
 
         if (!$variant) {
@@ -584,6 +590,12 @@ class ProductService
             'width',
             'height',
             'supplier_price',
+            'chest_inch',
+            'chest_cm',
+            'length_inch',
+            'length_cm',
+            'neck_inch',
+            'neck_cm',
         ];
 
         // Add price columns for all tiers and all types
@@ -628,6 +640,12 @@ class ProductService
             '10',                      // width (cm)
             '1',                       // height (cm)
             '3.50',                    // supplier_price
+            '',                        // chest_inch
+            '',                        // chest_cm
+            '',                        // length_inch
+            '',                        // length_cm
+            '',                        // neck_inch
+            '',                        // neck_cm
         ];
 
         $sampleRows = [
@@ -677,6 +695,12 @@ class ProductService
             'width',
             'height',
             'supplier_price',
+            'chest_inch',
+            'chest_cm',
+            'length_inch',
+            'length_cm',
+            'neck_inch',
+            'neck_cm',
         ];
 
         foreach ($tierIds as $tierId) {
@@ -721,6 +745,12 @@ class ProductService
                 $variant->width,
                 $variant->height,
                 $variant->supplier_price,
+                $variant->chest_inch,
+                $variant->chest_cm,
+                $variant->length_inch,
+                $variant->length_cm,
+                $variant->neck_inch,
+                $variant->neck_cm,
             ];
 
             $priceMap = $variant->priceVariants

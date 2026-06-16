@@ -26,11 +26,24 @@ class ProductVariant extends Model
         'width',
         'height',
         'supplier_price',
+        // Garment size-chart measurements (inch + cm)
+        'chest_inch',
+        'chest_cm',
+        'length_inch',
+        'length_cm',
+        'neck_inch',
+        'neck_cm',
     ];
 
     protected $casts = [
         'active' => 'boolean',
         'supplier_price' => 'decimal:2',
+        'chest_inch' => 'decimal:2',
+        'chest_cm' => 'decimal:2',
+        'length_inch' => 'decimal:2',
+        'length_cm' => 'decimal:2',
+        'neck_inch' => 'decimal:2',
+        'neck_cm' => 'decimal:2',
     ];
 
     // Appends for API responses (computed in service layer to avoid N+1)
