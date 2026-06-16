@@ -940,7 +940,7 @@ export function LemiexManageStockPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={ALL_VALUE}>{m.filters.allStyles}</SelectItem>
-                      {filterOptions?.styles.map((style) => (
+                      {filterOptions?.styles.filter(Boolean).map((style) => (
                         <SelectItem key={style} value={style}>
                           {style}
                         </SelectItem>
@@ -962,7 +962,7 @@ export function LemiexManageStockPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={ALL_VALUE}>{m.filters.allColors}</SelectItem>
-                      {filterOptions?.colors.map((color) => (
+                      {filterOptions?.colors.filter(Boolean).map((color) => (
                         <SelectItem key={color} value={color}>
                           {color}
                         </SelectItem>
@@ -984,7 +984,7 @@ export function LemiexManageStockPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={ALL_VALUE}>{m.filters.allSizes}</SelectItem>
-                      {filterOptions?.sizes.map((size) => (
+                      {filterOptions?.sizes.filter(Boolean).map((size) => (
                         <SelectItem key={size} value={size}>
                           {size}
                         </SelectItem>
