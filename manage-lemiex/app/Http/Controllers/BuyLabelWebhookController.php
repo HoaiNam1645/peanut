@@ -34,7 +34,21 @@ class BuyLabelWebhookController extends Controller
             }
         }
 
-        $payload = $request->all();
+        // ShipDVX may POST with a non-JSON Content-Type (e.g. text/plain), which leaves
+        // $request->all() empty (every field then reads as null). Decode the raw body as
+        // JSON explicitly — $request->json() decodes regardless of the Content-Type header.
+        $payload = $request->json()->all();
+        if (empty($payload)) {
+            $decoded = json_decode((string) $request->getContent(), true);
+            $payload = is_array($decoded) ? $decoded : $request->all();
+        }
+
+        // Temporary diagnostic: log the raw body to confirm the provider's exact envelope.
+        Log::info('ShipDVX webhook raw', [
+            'content_type' => $request->header('Content-Type'),
+            'body' => mb_substr((string) $request->getContent(), 0, 2000),
+        ]);
+
         $orderNumber = $payload['orderNumber'] ?? ($payload['data']['orderNumber'] ?? null);
         $providerOrderId = $payload['orderId'] ?? ($payload['data']['_id'] ?? null);
         // Envelope is inconsistent: the spec says top-level `status` is the order
