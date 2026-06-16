@@ -1012,3 +1012,43 @@ export async function postOrderLabel(orderId: number | string) {
 
   return payload
 }
+
+// ===== ShipDVX provider orders (proxy via our backend) =====
+export type ShipDvxOrder = {
+  _id?: string
+  id?: string
+  orderNumber?: string
+  orderType?: string
+  status?: string
+  barcode?: string
+  transactionCode?: string
+  calculatedPrice?: number
+  chargeableWeight?: number
+  shippingPartner?: { name?: string } | string | null
+  recipient?: { name?: string; city?: string; state?: string; country?: string } | null
+  createdAt?: string
+}
+
+export type ShipDvxOrdersResult = {
+  docs: ShipDvxOrder[]
+  totalDocs?: number
+  page?: number
+  totalPages?: number
+  limit?: number
+  hasNextPage?: boolean
+  hasPrevPage?: boolean
+}
+
+export async function fetchShipDvxOrders(
+  page = 1,
+  limit = 20
+): Promise<ShipDvxOrdersResult> {
+  const payload = await request<{ data?: ShipDvxOrdersResult }>(
+    `/buy-label/provider-orders?page=${page}&limit=${limit}`
+  )
+  return (
+    payload.data ?? {
+      docs: [],
+    }
+  )
+}

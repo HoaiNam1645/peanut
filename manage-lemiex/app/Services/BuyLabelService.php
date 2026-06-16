@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Constants\BuyLabelConstants;
 use App\Constants\HttpCode;
+use App\Constants\ShipDvxConstants;
 use App\Enums\OrderFulfillStatus;
 use App\Jobs\BuyLabelShipEngine;
 use App\Models\Order;
@@ -16,10 +17,163 @@ use Illuminate\Support\Facades\Log;
 class BuyLabelService
 {
     private ShippoService $shippoService;
+    private ShipDvxService $shipDvxService;
 
-    public function __construct(ShippoService $shippoService)
+    public function __construct(ShippoService $shippoService, ShipDvxService $shipDvxService)
     {
         $this->shippoService = $shippoService;
+        $this->shipDvxService = $shipDvxService;
+    }
+
+    /**
+     * Buy label / create shipping order(s) via ShipDVX (replaces the Shippo flow).
+     * Async: returns a jobId; the actual label/tracking arrive via webhook.
+     * Forwards existing TikTok labels (HAS_LABEL) — shippingPartner = TIKTOK.
+     */
+    public function buyLabelViaShipDvx(array $orderIds, User $user): array
+    {
+        try {
+            $isAdmin = $user->role && strtolower($user->role->name) === 'admin';
+
+            $query = Order::with(['items.productVariant'])->whereIn('id', $orderIds);
+            if (!$isAdmin) {
+                $query->where('seller_id', $user->id);
+            }
+            $orders = $query->get();
+
+            if ($orders->isEmpty()) {
+                return [
+                    'code' => HttpCode::NOT_FOUND,
+                    'status' => false,
+                    'message' => BuyLabelConstants::ORDER_NOT_FOUND,
+                ];
+            }
+
+            $payloads = [];
+            foreach ($orders as $order) {
+                $payloads[] = $this->buildShipDvxPayload($order);
+            }
+
+            Log::info('ShipDVX create-orders request', [
+                'order_ids' => $orders->pluck('id')->toArray(),
+                'count' => count($payloads),
+                'payload' => $payloads,
+            ]);
+
+            $result = $this->shipDvxService->createOrders($payloads);
+
+            Log::info('ShipDVX create-orders response', ['result' => $result]);
+
+            $jobId = $result['jobId'] ?? null;
+            foreach ($orders as $order) {
+                $order->provider_order_number = $order->ref_id;
+                $order->provider_job_id = $jobId;
+                $order->label_status = ShipDvxConstants::STATUS_PENDING;
+                $order->save();
+            }
+
+            return [
+                'code' => HttpCode::SUCCESS,
+                'status' => true,
+                'message' => BuyLabelConstants::LABELS_DISPATCHED_SUCCESS,
+                'data' => [
+                    'job_id' => $jobId,
+                    'success' => $result['success'] ?? null,
+                    BuyLabelConstants::FIELD_TOTAL_ORDERS => $orders->count(),
+                    BuyLabelConstants::FIELD_DISPATCHED => $orders->count(),
+                ],
+            ];
+        } catch (Exception $e) {
+            Log::error('ShipDVX create-orders failed', [
+                'order_ids' => $orderIds,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'code' => HttpCode::SERVER_ERROR,
+                'status' => false,
+                'message' => BuyLabelConstants::LABEL_CREATION_FAILED . ': ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Build one ShipDVX create-orders payload from a local order.
+     * NOTE: `barcode` / `labelUrl` key names are best-guess (HAS_LABEL/TikTok) —
+     * confirm exact JSON keys with ShipDVX, then adjust here.
+     */
+    private function buildShipDvxPayload(Order $order): array
+    {
+        $name = trim(($order->first_name ?? '') . ' ' . ($order->last_name ?? ''));
+
+        $payload = [
+            'orderNumber' => $order->ref_id,
+            'shippingPartner' => ShipDvxConstants::PARTNER_TIKTOK,
+            'recipient' => [
+                'name' => $name ?: BuyLabelConstants::DEFAULT_CUSTOMER_NAME,
+                'phone' => $order->phone ?: '',
+                'address1' => $order->address_1 ?? '',
+                'address2' => $order->address_2 ?? '',
+                'city' => $order->city ?? '',
+                'state' => $order->state ?? '',
+                'postalCode' => $order->postcode ?? '',
+                'country' => $order->country ?? 'US',
+            ],
+            'items' => $this->buildShipDvxItems($order),
+        ];
+
+        // HAS_LABEL: forward the existing TikTok barcode + label
+        if (!empty($order->tracking_id)) {
+            $payload['barcode'] = $order->tracking_id;
+        }
+        if (!empty($order->shipping_label)) {
+            $payload['labelUrl'] = $order->shipping_label;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Build items[] from order items. Weight in gram, dims in cm, value in USD.
+     * Uses per-item (per-unit) values + quantity, per ShipDVX convention.
+     */
+    private function buildShipDvxItems(Order $order): array
+    {
+        $items = [];
+        foreach ($order->items as $item) {
+            $variant = $item->productVariant;
+            $items[] = [
+                'skuNumber' => $item->variant_id,
+                'name' => $item->product_name ?: ($item->variant_id ?: 'Item'),
+                'quantity' => (int) ($item->quantity ?: 1),
+                'description' => $item->product_name ?: '',
+                'weight' => (float) ($variant?->weight ?: ShipDvxConstants::DEFAULT_ITEM_WEIGHT_G),
+                'length' => (float) ($variant?->length ?: 0),
+                'width' => (float) ($variant?->width ?: 0),
+                'height' => (float) ($variant?->height ?: 0),
+                'combinable' => false,
+                'value' => (float) ($item->price ?: ShipDvxConstants::DEFAULT_ITEM_VALUE_USD),
+                'taxPercentage' => 0,
+            ];
+        }
+
+        if (empty($items)) {
+            $items[] = [
+                'skuNumber' => 'ITEM',
+                'name' => 'Item',
+                'quantity' => 1,
+                'description' => 'Item',
+                'weight' => ShipDvxConstants::DEFAULT_ITEM_WEIGHT_G,
+                'length' => 0,
+                'width' => 0,
+                'height' => 0,
+                'combinable' => false,
+                'value' => ShipDvxConstants::DEFAULT_ITEM_VALUE_USD,
+                'taxPercentage' => 0,
+            ];
+        }
+
+        return $items;
     }
 
     /**

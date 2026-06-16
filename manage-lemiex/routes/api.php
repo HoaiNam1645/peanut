@@ -3,6 +3,7 @@
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BuyLabelController;
+use App\Http\Controllers\BuyLabelWebhookController;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\OrderController;
@@ -270,11 +271,15 @@ Route::group(['prefix' => 'tickets', 'middleware' => 'jwt.auth'], function () {
     Route::post('/{id}/messages', [SupportController::class, 'sendMessage'])->middleware('permission:tickets.send_message');
 });
 
+// ShipDVX buy-label webhook (PUBLIC — provider callback; secret-verified inside controller)
+Route::post('/buy-label/webhook', [BuyLabelWebhookController::class, 'handle']);
+
 // Buy Label API (requires authentication)
 Route::group(['prefix' => 'buy-label', 'middleware' => ['jwt.auth', 'permission:orders.buy_label']], function () {
     Route::post('/single', [BuyLabelController::class, 'buyLabelShipEngine']);
     Route::post('/batch', [BuyLabelController::class, 'buyAllLabel']);
     Route::post('/check-eligible', [BuyLabelController::class, 'checkEligibleOrders']);
+    Route::get('/provider-orders', [BuyLabelController::class, 'providerOrders']);
 });
 
 // Tiers API (requires authentication)

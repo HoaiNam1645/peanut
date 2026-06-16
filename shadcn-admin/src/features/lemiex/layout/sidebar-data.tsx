@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Store,
   Ticket,
+  Truck,
   Users,
   Wallet,
   Warehouse,
@@ -317,6 +318,11 @@ function createLemiexNavGroups(locale: AppLocale): NavGroup[] {
           title: labels.orders,
           url: '/lemiex/orders',
           icon: ReceiptText,
+        },
+        {
+          title: 'Đơn ShipDVX',
+          url: '/lemiex/shipdvx-orders',
+          icon: Truck,
         },
         {
           title: labels.products,

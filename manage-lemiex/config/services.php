@@ -59,6 +59,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | ShipDVX / DNX Logistics Buy-Label Configuration (Active)
+    |--------------------------------------------------------------------------
+    | Async buy-label provider. Domain + key are env-driven so dev/prod only
+    | differ by env values (prod key TBD — drop into SHIPDVX_API_KEY when given).
+    */
+    'shipdvx' => [
+        'domain' => env('SHIPDVX_DOMAIN', 'https://dnx-logictis-api.tekup.vn'),
+        'api_key' => env('SHIPDVX_API_KEY'),
+        // Secret we require on incoming webhook calls (header X-Webhook-Secret)
+        'webhook_secret' => env('SHIPDVX_WEBHOOK_SECRET'),
+        // Our public URL registered with the provider (PUT /v1/partner/setup)
+        'webhook_url' => env('SHIPDVX_WEBHOOK_URL'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Telegram Bot Configuration
     |--------------------------------------------------------------------------
     */

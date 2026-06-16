@@ -42,9 +42,10 @@ export function SelectAllOrdersCheckbox() {
   const { currentOrderIds, selectedOrderIds, onToggleAllOrders } =
     useOrdersSelection()
 
+  const selectedSet = new Set(selectedOrderIds.map(String))
   const allSelected =
     currentOrderIds.length > 0 &&
-    currentOrderIds.every((id) => selectedOrderIds.includes(id))
+    currentOrderIds.every((id) => selectedSet.has(String(id)))
 
   return (
     <Checkbox
@@ -60,10 +61,11 @@ export function SelectOrderCheckbox({
   orderId: number | string
 }) {
   const { selectedOrderIds, onToggleOrder } = useOrdersSelection()
+  const isChecked = selectedOrderIds.some((id) => String(id) === String(orderId))
 
   return (
     <Checkbox
-      checked={selectedOrderIds.includes(orderId)}
+      checked={isChecked}
       onCheckedChange={() => onToggleOrder(orderId)}
     />
   )
