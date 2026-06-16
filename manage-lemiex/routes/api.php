@@ -279,6 +279,7 @@ Route::group(['prefix' => 'buy-label', 'middleware' => ['jwt.auth', 'permission:
     Route::post('/single', [BuyLabelController::class, 'buyLabelShipEngine']);
     Route::post('/batch', [BuyLabelController::class, 'buyAllLabel']);
     Route::post('/check-eligible', [BuyLabelController::class, 'checkEligibleOrders']);
+    Route::post('/preview-prices', [BuyLabelController::class, 'previewPrices']);
     Route::get('/provider-orders', [BuyLabelController::class, 'providerOrders']);
 });
 

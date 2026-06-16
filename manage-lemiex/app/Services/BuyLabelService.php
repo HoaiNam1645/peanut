@@ -133,6 +133,94 @@ class BuyLabelService
     }
 
     /**
+     * Preview ShipDVX shipping prices for orders WITHOUT creating them.
+     * Returns per-order price + a total, plus any orders that can't be priced
+     * (missing address).
+     */
+    public function previewShipDvxPrices(array $orderIds, User $user): array
+    {
+        try {
+            $isAdmin = $user->role && strtolower($user->role->name) === 'admin';
+
+            $query = Order::with(['items.productVariant'])->whereIn('id', $orderIds);
+            if (!$isAdmin) {
+                $query->where('seller_id', $user->id);
+            }
+            $orders = $query->get()->values();
+
+            if ($orders->isEmpty()) {
+                return [
+                    'code' => HttpCode::NOT_FOUND,
+                    'status' => false,
+                    'message' => BuyLabelConstants::ORDER_NOT_FOUND,
+                ];
+            }
+
+            // Build payloads only for orders with a complete address; keep mapping by index
+            $payloads = [];
+            $indexMap = []; // payload index => order meta
+            $invalid = [];
+            foreach ($orders as $order) {
+                $reasons = $this->validateShipDvxOrder($order);
+                if (!empty($reasons)) {
+                    $invalid[] = [
+                        BuyLabelConstants::FIELD_ORDER_ID => $order->id,
+                        BuyLabelConstants::FIELD_REF_ID => $order->ref_id,
+                        BuyLabelConstants::FIELD_REASONS => $reasons,
+                    ];
+                    continue;
+                }
+                $indexMap[count($payloads)] = [
+                    BuyLabelConstants::FIELD_ORDER_ID => $order->id,
+                    BuyLabelConstants::FIELD_REF_ID => $order->ref_id,
+                ];
+                $payloads[] = $this->buildShipDvxPayload($order);
+            }
+
+            $items = [];
+            $total = 0.0;
+            if (!empty($payloads)) {
+                $prices = $this->shipDvxService->previewPrices($payloads);
+                foreach ($prices as $p) {
+                    $idx = $p['index'] ?? null;
+                    $meta = $indexMap[$idx] ?? [];
+                    $price = isset($p['calculatedPrice']) ? (float) $p['calculatedPrice'] : null;
+                    $items[] = array_merge($meta, [
+                        'calculated_price' => $price,
+                        'chargeable_weight' => $p['chargeableWeight'] ?? null,
+                        'shipping_partner' => $p['shippingPartner'] ?? null,
+                        'is_zone9' => $p['isZone9'] ?? null,
+                    ]);
+                    $total += $price ?? 0;
+                }
+            }
+
+            return [
+                'code' => HttpCode::SUCCESS,
+                'status' => true,
+                'message' => 'OK',
+                'data' => [
+                    'items' => $items,
+                    'total' => round($total, 2),
+                    'count' => count($items),
+                    BuyLabelConstants::FIELD_INELIGIBLE => $invalid,
+                ],
+            ];
+        } catch (Exception $e) {
+            Log::error('ShipDVX preview-prices failed', [
+                'order_ids' => $orderIds,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'code' => HttpCode::SERVER_ERROR,
+                'status' => false,
+                'message' => 'Không tính được giá: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Validate that an order has the recipient info ShipDVX requires.
      * Returns a list of reasons (empty = valid).
      */

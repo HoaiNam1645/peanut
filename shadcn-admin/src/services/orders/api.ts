@@ -1052,3 +1052,30 @@ export async function fetchShipDvxOrders(
     }
   )
 }
+
+// ===== ShipDVX preview prices (before confirming Create shipping) =====
+export type ShipDvxPriceItem = {
+  order_id: number
+  ref_id?: string
+  calculated_price: number | null
+  chargeable_weight?: number | null
+  shipping_partner?: string | null
+  is_zone9?: boolean | null
+}
+
+export type ShipDvxPricePreview = {
+  items: ShipDvxPriceItem[]
+  total: number
+  count: number
+  ineligible: Array<{ order_id: number; ref_id?: string; reasons: string[] }>
+}
+
+export async function previewShippingPrices(
+  orderIds: Array<number | string>
+): Promise<ShipDvxPricePreview> {
+  const payload = await request<{ data?: ShipDvxPricePreview }>(
+    '/buy-label/preview-prices',
+    { method: 'POST', body: JSON.stringify({ order_ids: orderIds }) }
+  )
+  return payload.data ?? { items: [], total: 0, count: 0, ineligible: [] }
+}

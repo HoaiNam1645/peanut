@@ -45,6 +45,8 @@ import {
 import {
   buyLabelBatch,
   buyLabelSingle,
+  previewShippingPrices,
+  type ShipDvxPricePreview,
   fetchOrderIds,
   fetchOrderFulfillStatusOptions,
   fetchOrders,
@@ -229,6 +231,8 @@ export function LemiexOrders() {
   const [selectedOrderIds, setSelectedOrderIds] = useState<Array<number | string>>([])
   const [buyingLabel, setBuyingLabel] = useState(false)
   const [buyLabelConfirmOpen, setBuyLabelConfirmOpen] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewResult, setPreviewResult] = useState<ShipDvxPricePreview | null>(null)
   const [storeRequiredOpen, setStoreRequiredOpen] = useState(false)
   const [typeDialogOpen, setTypeDialogOpen] = useState(false)
 
@@ -404,6 +408,27 @@ export function LemiexOrders() {
     }
   }
 
+  const handleOpenPreview = async () => {
+    if (selectedOrderIds.length === 0) {
+      toast.error(ordersMessages.selectAtLeastOneOrder)
+      return
+    }
+    setPreviewResult(null)
+    setPreviewLoading(true)
+    setBuyLabelConfirmOpen(true)
+    try {
+      const res = await previewShippingPrices(selectedOrderIds)
+      setPreviewResult(res)
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Không tính được giá vận chuyển'
+      )
+      setBuyLabelConfirmOpen(false)
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
   const handleBuyLabel = async () => {
     if (selectedOrderIds.length === 0) {
       toast.error(ordersMessages.selectAtLeastOneOrder)
@@ -554,7 +579,7 @@ export function LemiexOrders() {
               type='button'
               size='sm'
               className='h-8 rounded-[6px] text-[12px]'
-              onClick={() => setBuyLabelConfirmOpen(true)}
+              onClick={() => void handleOpenPreview()}
             >
               {ordersMessages.buyLabel}
             </Button>
@@ -593,12 +618,57 @@ export function LemiexOrders() {
           <AlertDialogHeader>
             <AlertDialogTitle>{ordersMessages.confirmBuyLabel}</AlertDialogTitle>
             <AlertDialogDescription>
-              {ordersMessages.confirmBuyLabelDesc.replace(
-                '{count}',
-                String(selectedOrderIds.length)
-              )}
+              Xem trước cước vận chuyển cho {selectedOrderIds.length} đơn trước khi xác nhận:
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {previewLoading ? (
+            <div className='py-4 text-center text-sm text-muted-foreground'>
+              Đang tính giá…
+            </div>
+          ) : previewResult ? (
+            <div className='space-y-2 text-sm'>
+              <div className='max-h-56 overflow-y-auto rounded-[6px] border'>
+                <table className='w-full'>
+                  <thead className='sticky top-0 bg-muted/40 text-xs uppercase text-muted-foreground'>
+                    <tr>
+                      <th className='px-3 py-1.5 text-left'>Đơn</th>
+                      <th className='px-3 py-1.5 text-right'>Cân (g)</th>
+                      <th className='px-3 py-1.5 text-right'>Cước</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewResult.items.map((it) => (
+                      <tr key={it.order_id} className='border-t'>
+                        <td className='px-3 py-1.5'>{it.ref_id ?? `#${it.order_id}`}</td>
+                        <td className='px-3 py-1.5 text-right'>
+                          {it.chargeable_weight ?? '—'}
+                        </td>
+                        <td className='px-3 py-1.5 text-right font-medium'>
+                          {it.calculated_price != null
+                            ? `$${it.calculated_price.toFixed(2)}`
+                            : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className='flex justify-between font-semibold'>
+                <span>Tổng ({previewResult.count} đơn)</span>
+                <span>${previewResult.total.toFixed(2)}</span>
+              </div>
+              {previewResult.ineligible.length > 0 ? (
+                <div className='rounded-[6px] bg-amber-50 p-2 text-xs text-amber-700'>
+                  {previewResult.ineligible.length} đơn thiếu thông tin giao hàng sẽ bị bỏ qua:{' '}
+                  {previewResult.ineligible
+                    .map((i) => i.ref_id ?? `#${i.order_id}`)
+                    .join(', ')}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <AlertDialogFooter>
             <AlertDialogCancel className='rounded-[6px]'>
               {messages.profile.cancel}
@@ -609,7 +679,11 @@ export function LemiexOrders() {
                 event.preventDefault()
                 void handleBuyLabel()
               }}
-              disabled={buyingLabel}
+              disabled={
+                buyingLabel ||
+                previewLoading ||
+                (previewResult != null && previewResult.count === 0)
+              }
             >
               {buyingLabel ? ordersMessages.processing : ordersMessages.confirmPurchase}
             </AlertDialogAction>

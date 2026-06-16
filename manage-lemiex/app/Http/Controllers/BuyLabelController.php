@@ -107,6 +107,33 @@ class BuyLabelController extends Controller
     }
 
     /**
+     * Preview ShipDVX shipping prices for selected orders (no order created).
+     */
+    public function previewPrices(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'order_ids' => 'required|array|min:1',
+            'order_ids.*' => 'integer|exists:orders,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'code' => HttpCode::VALIDATION_ERROR,
+                'status' => false,
+                'message' => BuyLabelConstants::INVALID_ORDER_IDS,
+                'errors' => $validator->errors(),
+            ], HttpCode::VALIDATION_ERROR);
+        }
+
+        $result = $this->buyLabelService->previewShipDvxPrices(
+            $request->input('order_ids'),
+            Auth::user()
+        );
+
+        return response()->json($result, $result['code']);
+    }
+
+    /**
      * Proxy: list orders from the ShipDVX provider (GET /v1/partner/orders).
      * Keeps the provider api-key server-side.
      */
