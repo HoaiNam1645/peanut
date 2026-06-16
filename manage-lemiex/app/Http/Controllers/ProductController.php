@@ -53,6 +53,12 @@ class ProductController extends Controller
                 'variants.*.width' => 'nullable|integer|min:0',
                 'variants.*.height' => 'nullable|integer|min:0',
                 'variants.*.supplier_price' => 'nullable|numeric|min:0',
+                'variants.*.chest_inch' => 'nullable|numeric|min:0',
+                'variants.*.chest_cm' => 'nullable|numeric|min:0',
+                'variants.*.length_inch' => 'nullable|numeric|min:0',
+                'variants.*.length_cm' => 'nullable|numeric|min:0',
+                'variants.*.neck_inch' => 'nullable|numeric|min:0',
+                'variants.*.neck_cm' => 'nullable|numeric|min:0',
 
                 'variants.*.prices' => 'nullable|array',
                 'variants.*.prices.*.tier_id' => 'required|integer|exists:tiers,tier_id',

@@ -67,6 +67,12 @@ class ProductService
             'width' => $variantData['width'] ?? null,
             'height' => $variantData['height'] ?? null,
             'supplier_price' => $variantData['supplier_price'] ?? null,
+            'chest_inch' => $variantData['chest_inch'] ?? null,
+            'chest_cm' => $variantData['chest_cm'] ?? null,
+            'length_inch' => $variantData['length_inch'] ?? null,
+            'length_cm' => $variantData['length_cm'] ?? null,
+            'neck_inch' => $variantData['neck_inch'] ?? null,
+            'neck_cm' => $variantData['neck_cm'] ?? null,
         ]);
 
         Log::info('Variant created', [
