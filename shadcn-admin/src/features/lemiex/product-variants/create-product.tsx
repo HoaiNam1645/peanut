@@ -82,6 +82,12 @@ function defaultVariant(style?: string): LocalVariant {
     width: null,
     height: null,
     supplier_price: null,
+    chest_inch: null,
+    chest_cm: null,
+    length_inch: null,
+    length_cm: null,
+    neck_inch: null,
+    neck_cm: null,
     prices: [],
   }
 }
@@ -613,6 +619,46 @@ export function LemiexCreateProduct() {
                             <SelectItem value='false'>{formMessages.inactive}</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                    </div>
+
+                    {/* Garment measurements (size chart) */}
+                    <div className='grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6'>
+                      <div className={fieldWrap()}>
+                        <label className={label()}>Chest (inch)</label>
+                        <Input className={field()} type='number' min={0} step='0.01' value={variant.chest_inch ?? ''}
+                          onChange={(e) => updateVariant(variant.id, 'chest_inch', e.target.value === '' ? null : Number(e.target.value || 0))}
+                          placeholder='0' />
+                      </div>
+                      <div className={fieldWrap()}>
+                        <label className={label()}>Chest (cm)</label>
+                        <Input className={field()} type='number' min={0} step='0.01' value={variant.chest_cm ?? ''}
+                          onChange={(e) => updateVariant(variant.id, 'chest_cm', e.target.value === '' ? null : Number(e.target.value || 0))}
+                          placeholder='0' />
+                      </div>
+                      <div className={fieldWrap()}>
+                        <label className={label()}>Length (inch)</label>
+                        <Input className={field()} type='number' min={0} step='0.01' value={variant.length_inch ?? ''}
+                          onChange={(e) => updateVariant(variant.id, 'length_inch', e.target.value === '' ? null : Number(e.target.value || 0))}
+                          placeholder='0' />
+                      </div>
+                      <div className={fieldWrap()}>
+                        <label className={label()}>Length (cm)</label>
+                        <Input className={field()} type='number' min={0} step='0.01' value={variant.length_cm ?? ''}
+                          onChange={(e) => updateVariant(variant.id, 'length_cm', e.target.value === '' ? null : Number(e.target.value || 0))}
+                          placeholder='0' />
+                      </div>
+                      <div className={fieldWrap()}>
+                        <label className={label()}>Neck (inch)</label>
+                        <Input className={field()} type='number' min={0} step='0.01' value={variant.neck_inch ?? ''}
+                          onChange={(e) => updateVariant(variant.id, 'neck_inch', e.target.value === '' ? null : Number(e.target.value || 0))}
+                          placeholder='0' />
+                      </div>
+                      <div className={fieldWrap()}>
+                        <label className={label()}>Neck (cm)</label>
+                        <Input className={field()} type='number' min={0} step='0.01' value={variant.neck_cm ?? ''}
+                          onChange={(e) => updateVariant(variant.id, 'neck_cm', e.target.value === '' ? null : Number(e.target.value || 0))}
+                          placeholder='0' />
                       </div>
                     </div>
 

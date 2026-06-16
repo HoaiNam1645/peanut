@@ -16,6 +16,12 @@ export type ProductVariantSummary = {
   length?: number | null
   width?: number | null
   height?: number | null
+  chest_inch?: number | null
+  chest_cm?: number | null
+  length_inch?: number | null
+  length_cm?: number | null
+  neck_inch?: number | null
+  neck_cm?: number | null
   tier_pricing?: Record<string, Record<string, number | string | null>> | null
 }
 
@@ -143,6 +149,12 @@ export type CreateProductVariantPayload = {
   width?: number | null
   height?: number | null
   supplier_price?: number | null
+  chest_inch?: number | null
+  chest_cm?: number | null
+  length_inch?: number | null
+  length_cm?: number | null
+  neck_inch?: number | null
+  neck_cm?: number | null
   prices?: ProductPricePayload[]
 }
 

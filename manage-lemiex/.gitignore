@@ -25,3 +25,6 @@ Thumbs.db
 storage/api-docs/
 /public/docs
 tokendropbox.txt
+
+# local env backups (secrets — never commit)
+.env.bak*

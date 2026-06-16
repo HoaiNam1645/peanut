@@ -274,6 +274,12 @@ export function LemiexProductVariantDetailPage({ id }: Props) {
       length: editingVariant.length ?? null,
       width: editingVariant.width ?? null,
       height: editingVariant.height ?? null,
+      chest_inch: editingVariant.chest_inch ?? null,
+      chest_cm: editingVariant.chest_cm ?? null,
+      length_inch: editingVariant.length_inch ?? null,
+      length_cm: editingVariant.length_cm ?? null,
+      neck_inch: editingVariant.neck_inch ?? null,
+      neck_cm: editingVariant.neck_cm ?? null,
       active: editingVariant.active ?? true,
     }
 
@@ -623,6 +629,156 @@ export function LemiexProductVariantDetailPage({ id }: Props) {
             variant.height != null ? (
             <span>
               {variant.length} × {variant.width} × {variant.height}
+            </span>
+          ) : (
+            m.noData
+          )
+        },
+      },
+      {
+        accessorKey: 'chest',
+        header: 'Chest (in/cm)',
+        meta: {
+          thClassName: 'text-center w-[150px]',
+          tdClassName: 'text-center',
+        },
+        cell: ({ row }) => {
+          const variant = row.original
+          const isEditing = editingVariantId === variant.id && editingVariant
+          const activeVariant = isEditing ? editingVariant : variant
+
+          if (isEditing) {
+            return (
+              <div className='grid grid-cols-2 gap-2'>
+                <Input
+                  className='h-9 rounded-[6px]'
+                  type='number'
+                  min={0}
+                  step='0.01'
+                  placeholder='in'
+                  value={activeVariant.chest_inch ?? ''}
+                  onChange={(e) =>
+                    updateEditingVariant('chest_inch', e.target.value === '' ? null : Number(e.target.value || 0))
+                  }
+                />
+                <Input
+                  className='h-9 rounded-[6px]'
+                  type='number'
+                  min={0}
+                  step='0.01'
+                  placeholder='cm'
+                  value={activeVariant.chest_cm ?? ''}
+                  onChange={(e) =>
+                    updateEditingVariant('chest_cm', e.target.value === '' ? null : Number(e.target.value || 0))
+                  }
+                />
+              </div>
+            )
+          }
+
+          return variant.chest_inch != null || variant.chest_cm != null ? (
+            <span>
+              {variant.chest_inch ?? '—'} / {variant.chest_cm ?? '—'}
+            </span>
+          ) : (
+            m.noData
+          )
+        },
+      },
+      {
+        accessorKey: 'garment_length',
+        header: 'Length (in/cm)',
+        meta: {
+          thClassName: 'text-center w-[150px]',
+          tdClassName: 'text-center',
+        },
+        cell: ({ row }) => {
+          const variant = row.original
+          const isEditing = editingVariantId === variant.id && editingVariant
+          const activeVariant = isEditing ? editingVariant : variant
+
+          if (isEditing) {
+            return (
+              <div className='grid grid-cols-2 gap-2'>
+                <Input
+                  className='h-9 rounded-[6px]'
+                  type='number'
+                  min={0}
+                  step='0.01'
+                  placeholder='in'
+                  value={activeVariant.length_inch ?? ''}
+                  onChange={(e) =>
+                    updateEditingVariant('length_inch', e.target.value === '' ? null : Number(e.target.value || 0))
+                  }
+                />
+                <Input
+                  className='h-9 rounded-[6px]'
+                  type='number'
+                  min={0}
+                  step='0.01'
+                  placeholder='cm'
+                  value={activeVariant.length_cm ?? ''}
+                  onChange={(e) =>
+                    updateEditingVariant('length_cm', e.target.value === '' ? null : Number(e.target.value || 0))
+                  }
+                />
+              </div>
+            )
+          }
+
+          return variant.length_inch != null || variant.length_cm != null ? (
+            <span>
+              {variant.length_inch ?? '—'} / {variant.length_cm ?? '—'}
+            </span>
+          ) : (
+            m.noData
+          )
+        },
+      },
+      {
+        accessorKey: 'neck',
+        header: 'Neck (in/cm)',
+        meta: {
+          thClassName: 'text-center w-[150px]',
+          tdClassName: 'text-center',
+        },
+        cell: ({ row }) => {
+          const variant = row.original
+          const isEditing = editingVariantId === variant.id && editingVariant
+          const activeVariant = isEditing ? editingVariant : variant
+
+          if (isEditing) {
+            return (
+              <div className='grid grid-cols-2 gap-2'>
+                <Input
+                  className='h-9 rounded-[6px]'
+                  type='number'
+                  min={0}
+                  step='0.01'
+                  placeholder='in'
+                  value={activeVariant.neck_inch ?? ''}
+                  onChange={(e) =>
+                    updateEditingVariant('neck_inch', e.target.value === '' ? null : Number(e.target.value || 0))
+                  }
+                />
+                <Input
+                  className='h-9 rounded-[6px]'
+                  type='number'
+                  min={0}
+                  step='0.01'
+                  placeholder='cm'
+                  value={activeVariant.neck_cm ?? ''}
+                  onChange={(e) =>
+                    updateEditingVariant('neck_cm', e.target.value === '' ? null : Number(e.target.value || 0))
+                  }
+                />
+              </div>
+            )
+          }
+
+          return variant.neck_inch != null || variant.neck_cm != null ? (
+            <span>
+              {variant.neck_inch ?? '—'} / {variant.neck_cm ?? '—'}
             </span>
           ) : (
             m.noData
