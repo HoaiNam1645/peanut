@@ -1,6 +1,6 @@
 'use client'
 
-import { type ComponentType, useEffect, useMemo, useRef, useState } from 'react'
+import { type ComponentType, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Tags, Truck } from 'lucide-react'
 import { toast } from 'sonner'
@@ -247,16 +247,13 @@ export function LemiexOrders() {
     role === 'Seller' || role === 'Admin' || role === 'Support'
   const orderTypes = WOOD_ORDER_TYPES
 
-  const openPreviewRef = useRef<(ids: Array<number | string>) => void>(() => {})
-
   const columns = useMemo(
     () =>
       getOrdersTableColumns(
         currentUser,
         ordersMessages,
         fulfillStatusOptions,
-        () => setRefreshKey((value) => value + 1),
-        (orderId) => openPreviewRef.current([orderId])
+        () => setRefreshKey((value) => value + 1)
       ),
     [currentUser, ordersMessages, fulfillStatusOptions]
   )
@@ -433,8 +430,6 @@ export function LemiexOrders() {
       setPreviewLoading(false)
     }
   }
-  // Let table row buttons trigger the same preview flow (defined above columns)
-  openPreviewRef.current = handleOpenPreview
 
   const handleBuyLabel = async () => {
     const ids = pendingBuyIds.length ? pendingBuyIds : selectedOrderIds
