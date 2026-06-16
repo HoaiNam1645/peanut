@@ -62,10 +62,11 @@ return [
     | ShipDVX / DNX Logistics Buy-Label Configuration (Active)
     |--------------------------------------------------------------------------
     | Async buy-label provider. Domain + key are env-driven so dev/prod only
-    | differ by env values (prod key TBD — drop into SHIPDVX_API_KEY when given).
+    | differ by env values. Default domain is PROD (api.shipdvx.com); point
+    | SHIPDVX_DOMAIN at https://dnx-logictis-api.tekup.vn for the dev sandbox.
     */
     'shipdvx' => [
-        'domain' => env('SHIPDVX_DOMAIN', 'https://dnx-logictis-api.tekup.vn'),
+        'domain' => env('SHIPDVX_DOMAIN', 'https://api.shipdvx.com'),
         'api_key' => env('SHIPDVX_API_KEY'),
         // Secret we require on incoming webhook calls (header X-Webhook-Secret)
         'webhook_secret' => env('SHIPDVX_WEBHOOK_SECRET'),

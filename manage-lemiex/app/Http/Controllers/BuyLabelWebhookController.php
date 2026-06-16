@@ -37,7 +37,15 @@ class BuyLabelWebhookController extends Controller
         $payload = $request->all();
         $orderNumber = $payload['orderNumber'] ?? ($payload['data']['orderNumber'] ?? null);
         $providerOrderId = $payload['orderId'] ?? ($payload['data']['_id'] ?? null);
-        $status = $payload['status'] ?? ($payload['data']['status'] ?? null);
+        // Envelope is inconsistent: the spec says top-level `status` is the order
+        // lifecycle status, but examples carry the webhook result ("SUCCESS") there
+        // and the real order status in data.status. Prefer a recognized lifecycle
+        // value; otherwise fall back to data.status so GENERATED is never missed.
+        $topStatus = $payload['status'] ?? null;
+        $dataStatus = $payload['data']['status'] ?? null;
+        $status = in_array($topStatus, ShipDvxConstants::STATUSES, true)
+            ? $topStatus
+            : ($dataStatus ?: $topStatus);
         $data = $payload['data'] ?? [];
 
         Log::info('ShipDVX webhook received', [

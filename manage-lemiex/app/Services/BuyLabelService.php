@@ -190,6 +190,9 @@ class BuyLabelService
                         'chargeable_weight' => $p['chargeableWeight'] ?? null,
                         'shipping_partner' => $p['shippingPartner'] ?? null,
                         'is_zone9' => $p['isZone9'] ?? null,
+                        // Provider returns a per-item `error` (e.g. RECIPIENT_COUNTRY_REQUIRED
+                        // for some non-US destinations) when it can't price that order.
+                        'error' => $p['error'] ?? null,
                     ]);
                     $total += $price ?? 0;
                 }
@@ -288,20 +291,19 @@ class BuyLabelService
 
     /**
      * Pick the ShipDVX shipping partner for a buy-label (NO_LABEL) order based
-     * on its destination: non-US → NON-US, US zone-9/remote → REMOTE-US, else USPS.
+     * on its destination: non-US → NON-US, otherwise USPS.
+     *
+     * All US destinations (incl. zone-9: AK/HI/PR/territories/APO-FPO) use USPS.
+     * The provider auto-detects zone-9 from the address and prices it accordingly
+     * (verified on prod: a HI address under USPS returns isZone9=true at a higher
+     * rate). The dedicated REMOTE-US partner is INACTIVE on the account, so we must
+     * never send it — doing so would fail order creation.
      */
     private function resolveShippingPartner(Order $order): string
     {
         $country = strtoupper(trim((string) ($order->country ?? 'US')));
         if ($country !== '' && $country !== 'US') {
             return ShipDvxConstants::PARTNER_NON_US;
-        }
-
-        // USPS zone-9 states/territories (from ShipDVX shipping-partners config)
-        $zone9 = ['AA', 'AE', 'AK', 'AP', 'AS', 'GU', 'HI', 'MP', 'PR', 'VI'];
-        $state = strtoupper(trim((string) ($order->state ?? '')));
-        if (in_array($state, $zone9, true)) {
-            return ShipDvxConstants::PARTNER_REMOTE_US;
         }
 
         return ShipDvxConstants::PARTNER_USPS;
