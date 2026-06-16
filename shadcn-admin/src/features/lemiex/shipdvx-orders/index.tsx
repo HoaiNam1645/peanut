@@ -1,13 +1,21 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { LoaderCircle, RefreshCw } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
+import { RefreshCw } from 'lucide-react'
 import {
   fetchShipDvxOrders,
   type ShipDvxOrder,
   type ShipDvxOrdersResult,
 } from '@/services/orders/api'
 import { Button } from '@/components/ui/button'
+import { Header } from '@/components/layout/header'
+import { Main } from '@/components/layout/main'
+import { Search } from '@/components/search'
+import { LanguageSwitch } from '@/components/language-switch'
+import { ThemeSwitch } from '@/components/theme-switch'
+import { ProfileDropdown } from '@/components/profile-dropdown'
+import { LemiexDataTable } from '@/features/lemiex/components/lemiex-data-table'
 
 function partnerName(p: ShipDvxOrder['shippingPartner']): string {
   if (!p) return '-'
@@ -20,33 +28,116 @@ function statusClass(status?: string): string {
     case 'GENERATED':
     case 'DELIVERED':
     case 'PROCESSED':
-      return 'bg-green-100 text-green-700'
+      return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
     case 'FAILED':
     case 'ORDER_FAILED':
     case 'CANCELLED':
-      return 'bg-red-100 text-red-700'
+      return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
     case 'PENDING':
-      return 'bg-amber-100 text-amber-700'
+      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
     default:
-      return 'bg-muted text-foreground'
+      return 'bg-muted text-muted-foreground'
   }
 }
+
+const columns: ColumnDef<ShipDvxOrder, unknown>[] = [
+  {
+    accessorKey: 'orderNumber',
+    header: 'Order Number',
+    cell: ({ row }) => (
+      <span className='font-medium'>{row.original.orderNumber ?? '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'orderType',
+    header: 'Type',
+    cell: ({ row }) => (
+      <span className='text-[13px] text-muted-foreground'>
+        {row.original.orderType ?? '-'}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({ row }) => (
+      <span
+        className={`inline-block rounded-[6px] px-2 py-0.5 text-xs font-medium ${statusClass(row.original.status)}`}
+      >
+        {row.original.status ?? '-'}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'shippingPartner',
+    header: 'Partner',
+    cell: ({ row }) => partnerName(row.original.shippingPartner),
+  },
+  {
+    accessorKey: 'barcode',
+    header: 'Barcode',
+    cell: ({ row }) => (
+      <span className='font-mono text-xs'>{row.original.barcode ?? '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'calculatedPrice',
+    header: 'Cước',
+    meta: { thClassName: 'text-right', tdClassName: 'text-right' },
+    cell: ({ row }) =>
+      typeof row.original.calculatedPrice === 'number' ? (
+        <span className='font-medium'>${row.original.calculatedPrice.toFixed(2)}</span>
+      ) : (
+        '-'
+      ),
+  },
+  {
+    accessorKey: 'chargeableWeight',
+    header: 'Cân (g)',
+    meta: { thClassName: 'text-right', tdClassName: 'text-right' },
+    cell: ({ row }) => row.original.chargeableWeight ?? '-',
+  },
+  {
+    accessorKey: 'recipient',
+    header: 'Người nhận',
+    cell: ({ row }) => {
+      const r = row.original.recipient
+      if (!r) return '-'
+      return (
+        <span>
+          {r.name ?? '-'}
+          {r.state ? (
+            <span className='text-muted-foreground'> ({r.state})</span>
+          ) : null}
+        </span>
+      )
+    },
+  },
+  {
+    accessorKey: 'createdAt',
+    header: 'Tạo lúc',
+    cell: ({ row }) => (
+      <span className='text-[13px] text-muted-foreground'>
+        {row.original.createdAt
+          ? new Date(row.original.createdAt).toLocaleString('vi-VN')
+          : '-'}
+      </span>
+    ),
+  },
+]
 
 export function LemiexShipDvxOrders() {
   const [result, setResult] = useState<ShipDvxOrdersResult>({ docs: [] })
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
-  const limit = 20
+  const [pageSize, setPageSize] = useState(20)
 
-  const load = useCallback(async (p: number) => {
+  const load = useCallback(async (p: number, size: number) => {
     setLoading(true)
-    setError(null)
     try {
-      const res = await fetchShipDvxOrders(p, limit)
+      const res = await fetchShipDvxOrders(p, size)
       setResult(res)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Không tải được đơn ShipDVX')
+    } catch {
       setResult({ docs: [] })
     } finally {
       setLoading(false)
@@ -54,123 +145,66 @@ export function LemiexShipDvxOrders() {
   }, [])
 
   useEffect(() => {
-    void load(page)
-  }, [page, load])
-
-  const docs = result.docs ?? []
-  const totalPages = result.totalPages ?? 1
+    void load(page, pageSize)
+  }, [page, pageSize, load])
 
   return (
-    <div className='space-y-4 p-4'>
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-xl font-semibold'>Đơn ShipDVX</h1>
-          <p className='text-sm text-muted-foreground'>
-            Đơn lấy trực tiếp từ API ShipDVX (GET /v1/partner/orders)
-            {typeof result.totalDocs === 'number' ? ` — tổng ${result.totalDocs}` : ''}
-          </p>
+    <>
+      <Header fixed>
+        <Search />
+        <div className='ml-auto flex items-center space-x-4'>
+          <LanguageSwitch />
+          <ThemeSwitch />
+          <ProfileDropdown />
         </div>
-        <Button
-          type='button'
-          variant='outline'
-          size='sm'
-          onClick={() => void load(page)}
-          disabled={loading}
-        >
-          <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-          Tải lại
-        </Button>
-      </div>
+      </Header>
 
-      {error ? (
-        <div className='rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700'>
-          {error}
-        </div>
-      ) : null}
+      <Main fluid className='flex flex-1 flex-col gap-3 px-4 sm:px-5 lg:px-6 xl:px-7'>
+        <div className='flex flex-wrap items-center justify-between gap-3'>
+          <div>
+            <h2 className='text-2xl font-bold tracking-tight'>Đơn ShipDVX</h2>
+            <p className='text-sm text-muted-foreground'>
+              Đơn vận chuyển lấy trực tiếp từ ShipDVX
+              {typeof result.totalDocs === 'number'
+                ? ` — ${result.totalDocs.toLocaleString('en-US')} đơn`
+                : ''}
+            </p>
+          </div>
 
-      <div className='overflow-x-auto rounded-md border'>
-        <table className='w-full text-left text-sm'>
-          <thead className='bg-muted/40 text-xs uppercase text-muted-foreground'>
-            <tr>
-              <th className='px-3 py-2'>Order Number</th>
-              <th className='px-3 py-2'>Type</th>
-              <th className='px-3 py-2'>Status</th>
-              <th className='px-3 py-2'>Partner</th>
-              <th className='px-3 py-2'>Barcode</th>
-              <th className='px-3 py-2 text-right'>Price</th>
-              <th className='px-3 py-2 text-right'>Cân (g)</th>
-              <th className='px-3 py-2'>Người nhận</th>
-              <th className='px-3 py-2'>Tạo lúc</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && docs.length === 0 ? (
-              <tr>
-                <td colSpan={9} className='px-3 py-8 text-center text-muted-foreground'>
-                  <LoaderCircle className='mx-auto size-5 animate-spin' />
-                </td>
-              </tr>
-            ) : docs.length === 0 ? (
-              <tr>
-                <td colSpan={9} className='px-3 py-8 text-center text-muted-foreground'>
-                  Không có đơn nào
-                </td>
-              </tr>
-            ) : (
-              docs.map((o) => (
-                <tr key={o._id ?? o.id ?? o.orderNumber} className='border-t'>
-                  <td className='px-3 py-2 font-medium'>{o.orderNumber ?? '-'}</td>
-                  <td className='px-3 py-2'>{o.orderType ?? '-'}</td>
-                  <td className='px-3 py-2'>
-                    <span className={`rounded px-2 py-0.5 text-xs ${statusClass(o.status)}`}>
-                      {o.status ?? '-'}
-                    </span>
-                  </td>
-                  <td className='px-3 py-2'>{partnerName(o.shippingPartner)}</td>
-                  <td className='px-3 py-2 font-mono text-xs'>{o.barcode ?? '-'}</td>
-                  <td className='px-3 py-2 text-right'>
-                    {typeof o.calculatedPrice === 'number' ? `$${o.calculatedPrice.toFixed(2)}` : '-'}
-                  </td>
-                  <td className='px-3 py-2 text-right'>{o.chargeableWeight ?? '-'}</td>
-                  <td className='px-3 py-2'>
-                    {o.recipient?.name ?? '-'}
-                    {o.recipient?.state ? ` (${o.recipient.state})` : ''}
-                  </td>
-                  <td className='px-3 py-2 text-xs text-muted-foreground'>
-                    {o.createdAt ? new Date(o.createdAt).toLocaleString('vi-VN') : '-'}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className='flex items-center justify-between'>
-        <span className='text-sm text-muted-foreground'>
-          Trang {result.page ?? page} / {totalPages}
-        </span>
-        <div className='flex gap-2'>
           <Button
             type='button'
             variant='outline'
             size='sm'
-            disabled={loading || (result.hasPrevPage === false) || page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className='rounded-[6px]'
+            onClick={() => void load(page, pageSize)}
+            disabled={loading}
           >
-            Trước
-          </Button>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            disabled={loading || (result.hasNextPage === false) || page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Sau
+            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+            Tải lại
           </Button>
         </div>
-      </div>
-    </div>
+
+        <div className='max-w-[1520px]'>
+          <LemiexDataTable
+            columns={columns}
+            data={result.docs ?? []}
+            page={result.page ?? page}
+            pageSize={result.limit ?? pageSize}
+            total={result.totalDocs ?? 0}
+            loading={loading}
+            loadingText='Đang tải…'
+            emptyText='Không có đơn nào'
+            getRowId={(row, i) =>
+              String(row._id ?? row.id ?? row.orderNumber ?? i)
+            }
+            onPageChange={setPage}
+            onPageSizeChange={(s) => {
+              setPageSize(s)
+              setPage(1)
+            }}
+          />
+        </div>
+      </Main>
+    </>
   )
 }
