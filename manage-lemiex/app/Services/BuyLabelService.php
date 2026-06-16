@@ -49,23 +49,57 @@ class BuyLabelService
                 ];
             }
 
-            $payloads = [];
+            // Only send orders with a complete recipient address
+            $valid = [];
+            $invalid = [];
             foreach ($orders as $order) {
+                $reasons = $this->validateShipDvxOrder($order);
+                if (empty($reasons)) {
+                    $valid[] = $order;
+                } else {
+                    $invalid[] = [
+                        BuyLabelConstants::FIELD_ORDER_ID => $order->id,
+                        BuyLabelConstants::FIELD_REF_ID => $order->ref_id,
+                        BuyLabelConstants::FIELD_REASONS => $reasons,
+                    ];
+                }
+            }
+
+            if (empty($valid)) {
+                return [
+                    'code' => HttpCode::BAD_REQUEST,
+                    'status' => false,
+                    'message' => 'Không có đơn hợp lệ để tạo vận chuyển (thiếu thông tin giao hàng)',
+                    'data' => [BuyLabelConstants::FIELD_INELIGIBLE => $invalid],
+                ];
+            }
+
+            $payloads = [];
+            foreach ($valid as $order) {
                 $payloads[] = $this->buildShipDvxPayload($order);
             }
 
             Log::info('ShipDVX create-orders request', [
-                'order_ids' => $orders->pluck('id')->toArray(),
+                'order_ids' => array_map(fn ($o) => $o->id, $valid),
                 'count' => count($payloads),
                 'payload' => $payloads,
             ]);
 
-            $result = $this->shipDvxService->createOrders($payloads);
+            try {
+                $result = $this->shipDvxService->createOrders($payloads);
+            } catch (Exception $e) {
+                // Surface the rejected payload even with LOG_LEVEL=warning
+                Log::warning('ShipDVX create-orders rejected', [
+                    'error' => $e->getMessage(),
+                    'payload' => $payloads,
+                ]);
+                throw $e;
+            }
 
             Log::info('ShipDVX create-orders response', ['result' => $result]);
 
             $jobId = $result['jobId'] ?? null;
-            foreach ($orders as $order) {
+            foreach ($valid as $order) {
                 $order->provider_order_number = $order->ref_id;
                 $order->provider_job_id = $jobId;
                 $order->label_status = ShipDvxConstants::STATUS_PENDING;
@@ -79,8 +113,9 @@ class BuyLabelService
                 'data' => [
                     'job_id' => $jobId,
                     'success' => $result['success'] ?? null,
-                    BuyLabelConstants::FIELD_TOTAL_ORDERS => $orders->count(),
-                    BuyLabelConstants::FIELD_DISPATCHED => $orders->count(),
+                    BuyLabelConstants::FIELD_TOTAL_ORDERS => count($valid),
+                    BuyLabelConstants::FIELD_DISPATCHED => count($valid),
+                    BuyLabelConstants::FIELD_INELIGIBLE => $invalid,
                 ],
             ];
         } catch (Exception $e) {
@@ -95,6 +130,31 @@ class BuyLabelService
                 'message' => BuyLabelConstants::LABEL_CREATION_FAILED . ': ' . $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Validate that an order has the recipient info ShipDVX requires.
+     * Returns a list of reasons (empty = valid).
+     */
+    private function validateShipDvxOrder(Order $order): array
+    {
+        $reasons = [];
+        if (empty($order->address_1)) {
+            $reasons[] = 'Thiếu địa chỉ (address_1)';
+        }
+        if (empty($order->city)) {
+            $reasons[] = 'Thiếu thành phố';
+        }
+        if (empty($order->state)) {
+            $reasons[] = 'Thiếu bang (state)';
+        }
+        if (empty($order->postcode)) {
+            $reasons[] = 'Thiếu mã bưu chính (postal code)';
+        }
+        if (empty($order->country)) {
+            $reasons[] = 'Thiếu quốc gia';
+        }
+        return $reasons;
     }
 
     /**
