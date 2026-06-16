@@ -254,9 +254,12 @@ class BuyLabelService
     {
         $name = trim(($order->first_name ?? '') . ' ' . ($order->last_name ?? ''));
 
+        // HAS_LABEL = order already carries a label + tracking (TikTok) → forward it.
+        // Otherwise NO_LABEL (Etsy/seller-ship) → ShipDVX buys/generates the label.
+        $hasLabel = !empty($order->tracking_id) && !empty($order->shipping_label);
+
         $payload = [
             'orderNumber' => $order->ref_id,
-            'shippingPartner' => ShipDvxConstants::PARTNER_TIKTOK,
             'recipient' => [
                 'name' => $name ?: BuyLabelConstants::DEFAULT_CUSTOMER_NAME,
                 'phone' => $order->phone ?: '',
@@ -270,15 +273,38 @@ class BuyLabelService
             'items' => $this->buildShipDvxItems($order),
         ];
 
-        // HAS_LABEL: forward the existing TikTok barcode + label
-        if (!empty($order->tracking_id)) {
+        if ($hasLabel) {
+            // Forward the existing TikTok label
+            $payload['shippingPartner'] = ShipDvxConstants::PARTNER_TIKTOK;
             $payload['barcode'] = $order->tracking_id;
-        }
-        if (!empty($order->shipping_label)) {
             $payload['labelUrl'] = $order->shipping_label;
+        } else {
+            // Buy a new label — pick the last-mile partner from the address
+            $payload['shippingPartner'] = $this->resolveShippingPartner($order);
         }
 
         return $payload;
+    }
+
+    /**
+     * Pick the ShipDVX shipping partner for a buy-label (NO_LABEL) order based
+     * on its destination: non-US → NON-US, US zone-9/remote → REMOTE-US, else USPS.
+     */
+    private function resolveShippingPartner(Order $order): string
+    {
+        $country = strtoupper(trim((string) ($order->country ?? 'US')));
+        if ($country !== '' && $country !== 'US') {
+            return ShipDvxConstants::PARTNER_NON_US;
+        }
+
+        // USPS zone-9 states/territories (from ShipDVX shipping-partners config)
+        $zone9 = ['AA', 'AE', 'AK', 'AP', 'AS', 'GU', 'HI', 'MP', 'PR', 'VI'];
+        $state = strtoupper(trim((string) ($order->state ?? '')));
+        if (in_array($state, $zone9, true)) {
+            return ShipDvxConstants::PARTNER_REMOTE_US;
+        }
+
+        return ShipDvxConstants::PARTNER_USPS;
     }
 
     /**

@@ -22,12 +22,14 @@ type OrderActionsCellProps = {
   order: OrderListItem
   user: AuthUser | null
   onOrderUpdated?: () => void
+  onBuyLabel?: (orderId: number | string) => void
 }
 
 export function OrderActionsCell({
   order,
   user,
   onOrderUpdated,
+  onBuyLabel,
 }: OrderActionsCellProps) {
   const router = useRouter()
   const [ticketExistsOpen, setTicketExistsOpen] = useState(false)
@@ -43,6 +45,10 @@ export function OrderActionsCell({
       ['new_order', 'on_hold'].includes(order.fulfill_status || ''))
   const canUseSupport =
     role === 'Admin' || role === 'Seller' || role === 'Support'
+  // Has label + tracking (TikTok) → "Create shipping"; otherwise → "Buy label"
+  const hasLabel =
+    Boolean(order.shipping?.tracking_id) &&
+    Boolean(order.shipping?.label_url || order.shipping_label)
 
   const handleSupportClick = () => {
     if (order.has_ticket || order.support_ticket?.id) {
@@ -100,6 +106,17 @@ export function OrderActionsCell({
             onClick={handleSupportClick}
           >
             {ordersMessages.actions.support}
+          </Button>
+        ) : null}
+
+        {onBuyLabel ? (
+          <Button
+            type='button'
+            size='sm'
+            className='h-7 min-w-[92px] justify-center rounded-[6px] px-2.5 text-[11px]'
+            onClick={() => onBuyLabel(order.id)}
+          >
+            {hasLabel ? 'Mua vận chuyển' : 'Mua label'}
           </Button>
         ) : null}
       </div>

@@ -176,7 +176,7 @@ function validateFormValues(
     return validationMessages.shippingLabelRequired
   }
 
-  if (mode === 'seller-ship') {
+  if (mode === 'seller-ship' || mode === 'label-ship') {
     const requiredAddressFields: Array<keyof AddressFormValues> = [
       'name',
       'street1',
@@ -659,6 +659,7 @@ export function ShirtOrderForm({ mode }: ShirtOrderFormProps) {
           shipping_label: values.shipping_label,
           fulfillment_priority: values.fulfillment_priority,
           note: values.note,
+          address: values.address,
           line_items: lineItems,
         }
 
@@ -1025,7 +1026,7 @@ export function ShirtOrderForm({ mode }: ShirtOrderFormProps) {
             </CardContent>
           </Card>
 
-          {mode === 'seller-ship' ? (
+          {mode === 'seller-ship' || mode === 'label-ship' ? (
             <Card className={sectionCardClassName()}>
               <CardHeader className='border-b border-border/60 px-4 py-3'>
                 <CardTitle className='text-[14px] font-semibold'>

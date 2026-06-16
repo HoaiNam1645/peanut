@@ -212,6 +212,16 @@ export type CreateLabelShipPayload = {
   shipping_label: string
   fulfillment_priority: string
   note: string
+  address: {
+    name: string
+    phone: string
+    street1: string
+    street2: string
+    city: string
+    state: string
+    zip: string
+    country: string
+  }
   line_items: CreateOrderLineItemPayload[]
 }
 

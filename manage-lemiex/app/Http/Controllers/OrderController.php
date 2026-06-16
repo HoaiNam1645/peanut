@@ -538,7 +538,13 @@ class OrderController extends Controller
             $fulfillmentPriority = $validated['fulfillment_priority'] ?? 'normal';
             $priorityFee = \App\Models\FulfillmentPriority::getPriceForTier($fulfillmentPriority, $tier);
 
-            // Step 3: Prepare order data (NO address for LABEL SHIP)
+            // Optional recipient address (ShipDVX needs it for customs even on LABEL SHIP)
+            $labelAddress = $validated['address'] ?? null;
+            $labelNameParts = !empty($labelAddress['name'])
+                ? explode(' ', $labelAddress['name'], 2)
+                : [];
+
+            // Step 3: Prepare order data
             $orderData = [
                 'ref_id' => $validated['ref_id'],
                 'seller_id' => $user->id,
@@ -556,16 +562,18 @@ class OrderController extends Controller
                 'payment_status' => OrderPaymentStatus::PENDING,
                 'extra_fee' => OrderConstants::DEFAULT_EXTRA_FEE,
                 'refund_fee' => OrderConstants::DEFAULT_REFUND_FEE,
-                // No address for LABEL SHIP
-                'first_name' => null,
-                'last_name' => null,
-                'phone' => null,
-                'address_1' => null,
-                'address_2' => null,
-                'city' => null,
-                'state' => null,
-                'postcode' => null,
-                'country' => null,
+                // Recipient address (optional for LABEL SHIP; provided for ShipDVX customs)
+                'first_name' => $labelNameParts[0] ?? null,
+                'last_name' => $labelNameParts[1] ?? null,
+                'phone' => $labelAddress['phone'] ?? null,
+                'address_1' => $labelAddress['street1'] ?? null,
+                'address_2' => $labelAddress['street2'] ?? null,
+                'city' => $labelAddress['city'] ?? null,
+                'state' => $labelAddress['state'] ?? null,
+                'postcode' => $labelAddress['zip'] ?? null,
+                'country' => !empty($labelAddress['country'])
+                    ? strtoupper($labelAddress['country'])
+                    : null,
             ];
 
             // Step 4: Create order with transaction

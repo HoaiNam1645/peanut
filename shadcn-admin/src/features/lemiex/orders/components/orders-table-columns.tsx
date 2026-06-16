@@ -93,7 +93,8 @@ export function getOrdersTableColumns(
   user: AuthUser | null,
   messages: ReturnType<typeof useI18n>['messages']['orders'],
   fulfillStatusOptions: SelectOption[],
-  onOrderUpdated: () => void
+  onOrderUpdated: () => void,
+  onBuyLabel?: (orderId: number | string) => void
 ): ColumnDef<LemiexOrderRow>[] {
   const role = getUserRoleName(user)
   const showSellerColumn = role === 'Admin' || role === 'Staff'
@@ -276,6 +277,7 @@ export function getOrdersTableColumns(
           order={row.original}
           user={user}
           onOrderUpdated={onOrderUpdated}
+          onBuyLabel={onBuyLabel}
         />
       ),
     }

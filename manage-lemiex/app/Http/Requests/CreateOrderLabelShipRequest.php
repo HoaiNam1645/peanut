@@ -40,6 +40,17 @@ class CreateOrderLabelShipRequest extends FormRequest
             'note' => 'nullable|string|max:1000',
             'product_type' => 'nullable|string|max:100',
 
+            // Shipping address (optional) — required by ShipDVX for customs even on label-ship
+            'address' => 'nullable|array',
+            'address.name' => 'nullable|string|max:255',
+            'address.phone' => 'nullable|string|max:50',
+            'address.street1' => 'nullable|string|max:255',
+            'address.street2' => 'nullable|string|max:255',
+            'address.city' => 'nullable|string|max:100',
+            'address.state' => 'nullable|string|max:100',
+            'address.zip' => 'nullable|string|max:20',
+            'address.country' => 'nullable|string|max:10',
+
             // Line items validation
             'line_items.*.variant_id' => 'required|string|max:255|exists:product_variants,variant_id',
             'line_items.*.product_name' => 'required|string|max:500',
