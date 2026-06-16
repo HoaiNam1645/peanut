@@ -1085,7 +1085,11 @@ export async function previewShippingPrices(
 ): Promise<ShipDvxPricePreview> {
   const payload = await request<{ data?: ShipDvxPricePreview }>(
     '/buy-label/preview-prices',
-    { method: 'POST', body: JSON.stringify({ order_ids: orderIds }) }
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_ids: orderIds }),
+    }
   )
   return payload.data ?? { items: [], total: 0, count: 0, ineligible: [] }
 }
