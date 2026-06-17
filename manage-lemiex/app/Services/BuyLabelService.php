@@ -75,20 +75,8 @@ class BuyLabelService
             }
 
             $payloads = [];
-            $orderNumbers = [];
             foreach ($valid as $order) {
-                // The first attempt keeps the clean ref_id. A RETRY needs a unique
-                // orderNumber because ShipDVX keeps it reserved even after a failed/
-                // cancelled order (ORDER_NUMBER_ALREADY_EXISTS) — arguably a provider bug.
-                // The suffix is a timestamp (not random) so it stays traceable, and the
-                // ref_id prefix is preserved for lookup. We also store the exact value as
-                // provider_order_number so the webhook maps back and we can search it.
-                $alreadyAttempted = !empty($order->provider_order_number) || !empty($order->label_status);
-                $providerOrderNumber = $alreadyAttempted
-                    ? $order->ref_id . '-' . now()->format('ymdHis')
-                    : $order->ref_id;
-                $orderNumbers[$order->id] = $providerOrderNumber;
-                $payloads[] = $this->buildShipDvxPayload($order, $providerOrderNumber);
+                $payloads[] = $this->buildShipDvxPayload($order);
             }
 
             Log::info('ShipDVX create-orders request', [
@@ -112,7 +100,7 @@ class BuyLabelService
 
             $jobId = $result['jobId'] ?? null;
             foreach ($valid as $order) {
-                $order->provider_order_number = $orderNumbers[$order->id] ?? $order->ref_id;
+                $order->provider_order_number = $order->ref_id;
                 $order->provider_job_id = $jobId;
                 $order->label_status = ShipDvxConstants::STATUS_PENDING;
                 $order->save();
@@ -265,7 +253,7 @@ class BuyLabelService
      * NOTE: `barcode` / `labelUrl` key names are best-guess (HAS_LABEL/TikTok) —
      * confirm exact JSON keys with ShipDVX, then adjust here.
      */
-    private function buildShipDvxPayload(Order $order, ?string $orderNumber = null): array
+    private function buildShipDvxPayload(Order $order): array
     {
         $name = trim(($order->first_name ?? '') . ' ' . ($order->last_name ?? ''));
 
@@ -274,7 +262,7 @@ class BuyLabelService
         $hasLabel = !empty($order->tracking_id) && !empty($order->shipping_label);
 
         $payload = [
-            'orderNumber' => $orderNumber ?? $order->ref_id,
+            'orderNumber' => $order->ref_id,
             'recipient' => [
                 'name' => $name ?: BuyLabelConstants::DEFAULT_CUSTOMER_NAME,
                 'phone' => $order->phone ?: '',
