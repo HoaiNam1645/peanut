@@ -16,7 +16,7 @@ namespace App\Swagger\Seller\Docs;
  *         @OA\JsonContent(
  *             @OA\Examples(
  *                 example="LABEL_SHIP",
- *                 summary="Đơn LABEL_SHIP (in) - Có sẵn nhãn vận chuyển, KHÔNG cần địa chỉ",
+ *                 summary="Đơn LABEL_SHIP (in) - Có sẵn nhãn vận chuyển; NÊN kèm địa chỉ người nhận (state là mã bang 2 ký tự, vd NY) để tạo vận chuyển + thông quan",
  *                 value={
  *                     "api_key": "shpat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
  *                     "order_type": "label_ship",
@@ -29,6 +29,16 @@ namespace App\Swagger\Seller\Docs;
  *                     "shipping_label": "https://example.com/label.pdf",
  *                     "fulfillment_priority": "normal",
  *                     "note": "Ghi chú đơn hàng",
+ *                     "address": {
+ *                         "name": "John Doe",
+ *                         "phone": "1234567890",
+ *                         "street1": "123 Main St",
+ *                         "street2": "Apt 4B",
+ *                         "city": "New York",
+ *                         "state": "NY",
+ *                         "zip": "10001",
+ *                         "country": "US"
+ *                     },
  *                     "line_items": {
  *                         {
  *                             "variant_id": "PRINT-BOX-S-NAT",
@@ -132,7 +142,7 @@ namespace App\Swagger\Seller\Docs;
  * - `order_status`: bắt buộc gửi nhưng KHÔNG được là `producing` hoặc `closed` (đơn ở 2 trạng thái này không cho update).
  * - Seller chỉ update được đơn khi `fulfill_status` là `new_order` hoặc `on_hold`. Admin/Staff không bị giới hạn này.
  * - Enum cho phép: `shipping_method` ∈ {standard, express, priority}; `shipping_service` ∈ {USPS, FedEx, UPS}; `print_files.*.key` ∈ {front, back, sleeve_left, sleeve_right, special_design, neck, wrap}.
- * - `address` bắt buộc cho `seller_ship`; `shipping_label` bắt buộc cho `label_ship`.
+ * - `address` bắt buộc cho `seller_ship`, **tùy chọn** cho `label_ship` (nên gửi để tạo vận chuyển/thông quan; `state` là mã bang 2 ký tự); `shipping_label` bắt buộc cho `label_ship`.
  * - Nếu không có gì thay đổi sau diff, response 200 với message `No changes detected` và không touch DB.
  *
  * Chọn example từ dropdown để xem body mẫu.",
@@ -142,7 +152,7 @@ namespace App\Swagger\Seller\Docs;
  *         @OA\JsonContent(
  *             @OA\Examples(
  *                 example="LABEL_SHIP",
- *                 summary="Cập nhật đơn LABEL_SHIP - Có sẵn nhãn vận chuyển",
+ *                 summary="Cập nhật đơn LABEL_SHIP - Có sẵn nhãn; có thể kèm địa chỉ người nhận (state là mã bang 2 ký tự)",
  *                 value={
  *                     "id": 12345,
  *                     "api_key": "shpat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
@@ -154,6 +164,16 @@ namespace App\Swagger\Seller\Docs;
  *                     "shipping_service": "USPS",
  *                     "shipping_label": "https://example.com/label.pdf",
  *                     "note": "Cập nhật ghi chú đơn hàng",
+ *                     "address": {
+ *                         "name": "John Doe",
+ *                         "phone": "1234567890",
+ *                         "street1": "456 New Address St",
+ *                         "street2": "Suite 100",
+ *                         "city": "Los Angeles",
+ *                         "state": "CA",
+ *                         "zip": "90001",
+ *                         "country": "US"
+ *                     },
  *                     "line_items": {
  *                         {
  *                             "variant_id": "PRINT-BOX-S-NAT",
