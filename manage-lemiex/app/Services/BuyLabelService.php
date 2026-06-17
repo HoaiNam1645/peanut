@@ -75,8 +75,15 @@ class BuyLabelService
             }
 
             $payloads = [];
+            $orderNumbers = [];
             foreach ($valid as $order) {
-                $payloads[] = $this->buildShipDvxPayload($order);
+                // ShipDVX requires a unique orderNumber per create attempt; reusing ref_id
+                // collides with prior (even failed) attempts → ORDER_NUMBER_ALREADY_EXISTS.
+                // Append a short unique suffix and remember it so the webhook can map back
+                // via provider_order_number.
+                $providerOrderNumber = $order->ref_id . '-' . substr(uniqid(), -6);
+                $orderNumbers[$order->id] = $providerOrderNumber;
+                $payloads[] = $this->buildShipDvxPayload($order, $providerOrderNumber);
             }
 
             Log::info('ShipDVX create-orders request', [
@@ -100,7 +107,7 @@ class BuyLabelService
 
             $jobId = $result['jobId'] ?? null;
             foreach ($valid as $order) {
-                $order->provider_order_number = $order->ref_id;
+                $order->provider_order_number = $orderNumbers[$order->id] ?? $order->ref_id;
                 $order->provider_job_id = $jobId;
                 $order->label_status = ShipDvxConstants::STATUS_PENDING;
                 $order->save();
@@ -236,8 +243,8 @@ class BuyLabelService
         if (empty($order->city)) {
             $reasons[] = 'Thiếu thành phố';
         }
-        if (empty($order->state)) {
-            $reasons[] = 'Thiếu bang (state)';
+        if ($this->resolveStateCode($order) === null) {
+            $reasons[] = 'Bang (state) không hợp lệ — cần mã 2 ký tự (vd TX, CA)';
         }
         if (empty($order->postcode)) {
             $reasons[] = 'Thiếu mã bưu chính (postal code)';
@@ -253,7 +260,7 @@ class BuyLabelService
      * NOTE: `barcode` / `labelUrl` key names are best-guess (HAS_LABEL/TikTok) —
      * confirm exact JSON keys with ShipDVX, then adjust here.
      */
-    private function buildShipDvxPayload(Order $order): array
+    private function buildShipDvxPayload(Order $order, ?string $orderNumber = null): array
     {
         $name = trim(($order->first_name ?? '') . ' ' . ($order->last_name ?? ''));
 
@@ -262,14 +269,14 @@ class BuyLabelService
         $hasLabel = !empty($order->tracking_id) && !empty($order->shipping_label);
 
         $payload = [
-            'orderNumber' => $order->ref_id,
+            'orderNumber' => $orderNumber ?? $order->ref_id,
             'recipient' => [
                 'name' => $name ?: BuyLabelConstants::DEFAULT_CUSTOMER_NAME,
                 'phone' => $order->phone ?: '',
                 'address1' => $order->address_1 ?? '',
                 'address2' => $order->address_2 ?? '',
                 'city' => $order->city ?? '',
-                'state' => $order->state ?? '',
+                'state' => $this->resolveStateCode($order) ?? '',
                 'postalCode' => $order->postcode ?? '',
                 'country' => $order->country ?? 'US',
             ],
@@ -299,6 +306,32 @@ class BuyLabelService
      * rate). The dedicated REMOTE-US partner is INACTIVE on the account, so we must
      * never send it — doing so would fail order creation.
      */
+    /**
+     * Normalize recipient state to the 2-char code ShipDVX requires for US.
+     * - US: returns a 2-letter code (as-is if already 2 chars, else mapped from full
+     *   name); null when it can't be resolved (e.g. a city was entered) → caller treats
+     *   the order as ineligible instead of failing at the provider.
+     * - Non-US: returns the trimmed value as-is (province formats vary by country).
+     */
+    private function resolveStateCode(Order $order): ?string
+    {
+        $raw = strtoupper(trim((string) ($order->state ?? '')));
+        if ($raw === '') {
+            return null;
+        }
+
+        $country = strtoupper(trim((string) ($order->country ?? 'US')));
+        if ($country !== '' && $country !== 'US') {
+            return $raw;
+        }
+
+        if (strlen($raw) === 2) {
+            return $raw;
+        }
+
+        return ShipDvxConstants::US_STATE_CODES[$raw] ?? null;
+    }
+
     private function resolveShippingPartner(Order $order): string
     {
         $country = strtoupper(trim((string) ($order->country ?? 'US')));
