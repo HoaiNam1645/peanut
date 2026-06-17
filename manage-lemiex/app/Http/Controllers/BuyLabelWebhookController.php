@@ -63,6 +63,8 @@ class BuyLabelWebhookController extends Controller
             ? $topStatus
             : ($dataStatus ?: $topStatus);
         $data = $payload['data'] ?? [];
+        // On ERROR webhooks the reason is at the top level and `data` is null.
+        $errorMsg = $payload['error'] ?? (is_array($data) ? ($data['error'] ?? null) : null);
 
         // Temporary: warning level so we can confirm parsed fields under LOG_LEVEL=warning.
         Log::warning('ShipDVX webhook received', [
@@ -94,7 +96,7 @@ class BuyLabelWebhookController extends Controller
         // ---- 4. Persist provider data ----
         $order->provider_order_id = $providerOrderId ?: $order->provider_order_id;
         $order->label_status = $status ?: $order->label_status;
-        $order->shipping_json = json_encode($data);
+        $order->shipping_json = json_encode($errorMsg ? ['error' => $errorMsg, 'data' => $data] : $data);
 
         // shipping partner name (data.shippingPartner may be object or id)
         $partnerName = is_array($data['shippingPartner'] ?? null)
@@ -125,6 +127,7 @@ class BuyLabelWebhookController extends Controller
             Log::error('ShipDVX webhook: order failed', [
                 'order_id' => $order->id,
                 'status' => $status,
+                'error' => $errorMsg,
                 'data' => $data,
             ]);
         }

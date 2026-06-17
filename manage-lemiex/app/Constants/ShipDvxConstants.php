@@ -33,6 +33,7 @@ class ShipDvxConstants
     const STATUS_FAILED       = 'FAILED';
     const STATUS_ORDER_FAILED = 'ORDER_FAILED';
     const STATUS_CANCELLED    = 'CANCELLED';
+    const STATUS_ERROR        = 'ERROR';      // provider rejected the order (reason in webhook `error`)
 
     const STATUSES = [
         self::STATUS_PENDING,
@@ -54,6 +55,7 @@ class ShipDvxConstants
     const FAILURE_STATUSES = [
         self::STATUS_FAILED,
         self::STATUS_ORDER_FAILED,
+        self::STATUS_ERROR,
     ];
 
     // ---- Shipping partners (by name; ids fetched via EP_SHIPPING_PARTNERS) ----
@@ -66,6 +68,11 @@ class ShipDvxConstants
     // ---- Fallbacks when SKU data not yet provided by the workshop ----
     const DEFAULT_ITEM_WEIGHT_G = 200;   // gram per item
     const DEFAULT_ITEM_VALUE_USD = 5;    // USD customs value per item
+    // Default package dims (cm) when a variant has no stored dimensions. The provider
+    // rejects 0 (min 0.01); these approximate a folded-garment poly mailer.
+    const DEFAULT_ITEM_LENGTH_CM = 20;
+    const DEFAULT_ITEM_WIDTH_CM  = 15;
+    const DEFAULT_ITEM_HEIGHT_CM = 2;
 
     // ---- HTTP ----
     const REQUEST_TIMEOUT = 30; // seconds
