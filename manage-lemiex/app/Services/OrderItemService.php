@@ -774,6 +774,13 @@ class OrderItemService
             return str_replace('_image', '', $metaKey);
         }
 
+        // Print/design file metas (front_pdf / back_json / sleeve_left_dst / neck_emb …) →
+        // position prefix. Must match trackOrder's extraction so QC/packing/shipout see the
+        // same positions the track page shows (else "No trackable positions found").
+        if (preg_match('/^(front|back|sleeve_left|sleeve_right|neck|wrap)_(pdf|json|dst|emb)$/', $metaKey, $matches)) {
+            return $matches[1];
+        }
+
         return null;
     }
 }
