@@ -32,17 +32,20 @@ Schedule::command('orders:auto-pay')
         \Illuminate\Support\Facades\Log::error('Auto payment failed');
     });
 
-// Buy Label Command - Runs every 15 minutes
-Schedule::command('app:buy-label')
-    ->everyFifteenMinutes()
-    ->withoutOverlapping()
-    ->runInBackground()
-    ->onSuccess(function () {
-        \Illuminate\Support\Facades\Log::info('Buy label cron completed successfully');
-    })
-    ->onFailure(function () {
-        \Illuminate\Support\Facades\Log::error('Buy label cron failed');
-    });
+// Buy Label Command — DISABLED on the scheduler on purpose.
+// Buy-label / create-shipping is MANUAL only (per-order + bulk buttons via ShipDVX).
+// This command still uses the OLD Shippo flow, so it must NOT run automatically.
+// Re-enable only after rewiring it to ShipDVX (buyLabelViaShipDvx).
+// Schedule::command('app:buy-label')
+//     ->everyFifteenMinutes()
+//     ->withoutOverlapping()
+//     ->runInBackground()
+//     ->onSuccess(function () {
+//         \Illuminate\Support\Facades\Log::info('Buy label cron completed successfully');
+//     })
+//     ->onFailure(function () {
+//         \Illuminate\Support\Facades\Log::error('Buy label cron failed');
+//     });
 
 // Order Validation - Runs every 5 minutes, batch 10 orders
 Schedule::command('orders:validate --batch=10 --min-age=10')
