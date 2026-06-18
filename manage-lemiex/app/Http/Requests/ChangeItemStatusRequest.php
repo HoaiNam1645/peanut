@@ -35,6 +35,9 @@ class ChangeItemStatusRequest extends FormRequest
             'item_id' => 'required|integer|exists:order_items,id',
             'meta_key' => 'required|string|in:' . implode(',', self::TRACKABLE_POSITIONS),
             'status' => 'required|boolean',
+            // Optional explicit stage. Supervisor roles (staff/admin/support) may target any
+            // stage; dedicated stage roles ignore this and use their own (enforced in controller).
+            'stage' => 'nullable|string|in:staff,qc,packing,shipout',
         ];
     }
 

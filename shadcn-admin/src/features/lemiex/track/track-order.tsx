@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
   type DragEvent,
-  type MouseEvent,
 } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -132,6 +131,7 @@ type ConfirmData = {
   itemId: number
   metaKey: string
   newStatus: boolean
+  stage?: 'staff' | 'qc' | 'packing' | 'shipout'
   checkbox?: HTMLInputElement | null
 }
 
@@ -678,35 +678,53 @@ export function TrackOrder({ orderId }: { orderId: string }) {
 
   // -------------------- Status mutations --------------------
 
-  const handleDesignStatusChange = (
+  // Open the confirm modal for a given production stage on a design position.
+  const requestStage = (
     itemId: number,
-    metaKey: string,
-    newStatus: boolean,
-    e: MouseEvent<HTMLInputElement> & { target: HTMLInputElement }
+    position: string,
+    stage: 'staff' | 'qc' | 'packing' | 'shipout'
   ) => {
-    if (!newStatus) {
-      toast.error(t.status.uncheckError)
-      e.target.checked = true
-      return
-    }
-    const designKey = `${itemId}_${metaKey}`
+    const designKey = `${itemId}_${position}`
     if (updatingDesign === designKey) return
 
     setConfirmData({
       itemId,
-      metaKey,
-      newStatus,
-      checkbox: e.target,
+      metaKey: position,
+      newStatus: true,
+      stage,
+      checkbox: null,
     })
     setShowConfirmModal(true)
   }
 
+  // Open the order's shipping label in a new tab to print it.
+  const openShippingLabel = (): boolean => {
+    const o = orderData?.order
+    const labelUrl =
+      (o?.shipping_label as string | undefined) ||
+      (o?.convert_label as string | undefined) ||
+      ''
+    if (!labelUrl) {
+      toast.error('Đơn chưa có label để in')
+      return false
+    }
+    window.open(labelUrl, '_blank')
+    return true
+  }
+
   const handleConfirmYes = async () => {
     if (!confirmData) return
-    const { itemId, metaKey, newStatus, checkbox } = confirmData
+    const { itemId, metaKey, newStatus, checkbox, stage } = confirmData
     const designKey = `${itemId}_${metaKey}`
     setShowConfirmModal(false)
     setUpdatingDesign(designKey)
+
+    // Final (shipout) step prints the label. Open the print tab synchronously on this
+    // user click so the popup blocker allows it, then point it at the label after success.
+    let printWin: Window | null = null
+    if (stage === 'shipout') {
+      printWin = window.open('', '_blank')
+    }
 
     try {
       const data = await apiRequest<StatusResponse>(
@@ -721,18 +739,34 @@ export function TrackOrder({ orderId }: { orderId: string }) {
             item_id: itemId,
             meta_key: metaKey,
             status: newStatus,
+            stage,
           }),
         }
       )
 
       if (data.status) {
-        await fetchOrderTracking(true)
         toast.success(t.status.readySuccess)
+        if (stage === 'shipout') {
+          const o = orderData?.order
+          const labelUrl =
+            (o?.shipping_label as string | undefined) ||
+            (o?.convert_label as string | undefined) ||
+            ''
+          if (printWin && labelUrl) {
+            printWin.location.href = labelUrl
+          } else {
+            printWin?.close()
+            if (!labelUrl) toast.error('Đơn chưa có label để in')
+          }
+        }
+        await fetchOrderTracking(true)
       } else {
+        printWin?.close()
         toast.error(data.message || t.status.updateFailed)
         if (checkbox) checkbox.checked = false
       }
     } catch (err) {
+      printWin?.close()
       console.error('Error updating design status:', err)
       toast.error(t.status.updateFailed)
       if (checkbox) checkbox.checked = false
@@ -1050,11 +1084,48 @@ export function TrackOrder({ orderId }: { orderId: string }) {
                           const isUpdating = updatingDesign === designKey
                           const orderStatus = orderData?.order?.fulfill_status
 
-                          const isStaffRole =
+                          // Stage the logged-in user is allowed to action. Supervisor roles
+                          // (Admin/Staff/Support = 1/3/5) can do ANY stage (1 worker covers all);
+                          // dedicated roles (QC=8/Packing=9/Shipout=10) only their own.
+                          const isSupervisor =
                             roleId !== null && [1, 3, 5].includes(roleId)
-                          // Role IDs reserved for future use:
-                          // QC = 8 | 1, Packing = 9 | 1, Shipout = 10 | 1
+                          const dedicatedStage =
+                            roleId === 8
+                              ? 'qc'
+                              : roleId === 9
+                                ? 'packing'
+                                : roleId === 10
+                                  ? 'shipout'
+                                  : null
+                          const canDo = (s: string) =>
+                            isSupervisor || dedicatedStage === s
 
+                          const stageButton = (
+                            s: 'staff' | 'qc' | 'packing' | 'shipout',
+                            label: string
+                          ) => (
+                            <Button
+                              size='sm'
+                              disabled={isUpdating}
+                              onClick={() =>
+                                requestStage(item.id, design.position, s)
+                              }
+                            >
+                              {isUpdating ? (
+                                <Loader2 className='mr-1.5 size-3.5 animate-spin' />
+                              ) : (
+                                <span className='mr-1.5'>✓</span>
+                              )}
+                              {label}
+                            </Button>
+                          )
+                          const waitLabel = (txt: string) => (
+                            <span className='inline-flex items-center rounded-md bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'>
+                              {txt}
+                            </span>
+                          )
+
+                          // Progression: staff → QC → packing → shipout. One button at a time.
                           let actionNode: React.ReactNode = null
                           if (orderStatus === 'cancelled') {
                             actionNode = (
@@ -1068,59 +1139,36 @@ export function TrackOrder({ orderId }: { orderId: string }) {
                                 {t.status.closedOrder}
                               </span>
                             )
-                          } else if (isStaffRole && !design.status) {
+                          } else if (!design.status) {
+                            actionNode = canDo('staff')
+                              ? stageButton('staff', 'Nhân viên xong')
+                              : waitLabel('⏳ Chờ nhân viên')
+                          } else if (!design.qc_status) {
+                            actionNode = canDo('qc')
+                              ? stageButton('qc', 'QC pass')
+                              : waitLabel('⏳ Chờ KCS')
+                          } else if (!design.packing_status) {
+                            actionNode = canDo('packing')
+                              ? stageButton('packing', 'Đóng gói xong')
+                              : waitLabel('⏳ Chờ đóng gói')
+                          } else if (!design.shipout_status) {
+                            actionNode = canDo('shipout')
+                              ? stageButton('shipout', 'Đã gửi & In label')
+                              : waitLabel('⏳ Chờ vận chuyển')
+                          } else {
                             actionNode = (
-                              <Button
-                                size='sm'
-                                disabled={isUpdating}
-                                onClick={(ev) =>
-                                  handleDesignStatusChange(
-                                    item.id,
-                                    design.position,
-                                    true,
-                                    ev as unknown as MouseEvent<HTMLInputElement> & {
-                                      target: HTMLInputElement
-                                    }
-                                  )
-                                }
-                              >
-                                {isUpdating ? (
-                                  <Loader2 className='mr-1.5 size-3.5 animate-spin' />
-                                ) : (
-                                  <span className='mr-1.5'>✓</span>
-                                )}
-                                {t.status.markStaffReady}
-                              </Button>
-                            )
-                          } else if (design.shipout_status) {
-                            actionNode = (
-                              <span className='inline-flex items-center rounded-md bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'>
-                                {t.status.complete}
-                              </span>
-                            )
-                          } else if (design.status && !design.qc_status) {
-                            actionNode = (
-                              <span className='inline-flex items-center rounded-md bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'>
-                                {t.status.waitingQC}
-                              </span>
-                            )
-                          } else if (
-                            design.qc_status &&
-                            !design.packing_status
-                          ) {
-                            actionNode = (
-                              <span className='inline-flex items-center rounded-md bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'>
-                                {t.status.waitingPacking}
-                              </span>
-                            )
-                          } else if (
-                            design.packing_status &&
-                            !design.shipout_status
-                          ) {
-                            actionNode = (
-                              <span className='inline-flex items-center rounded-md bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'>
-                                {t.status.waitingShipout}
-                              </span>
+                              <div className='flex flex-wrap items-center gap-2'>
+                                <span className='inline-flex items-center rounded-md bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'>
+                                  ✓ Hoàn thành
+                                </span>
+                                <Button
+                                  size='sm'
+                                  variant='outline'
+                                  onClick={() => openShippingLabel()}
+                                >
+                                  🖨 In label
+                                </Button>
+                              </div>
                             )
                           }
 

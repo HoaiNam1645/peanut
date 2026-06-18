@@ -45,8 +45,12 @@ class OrderItemController extends Controller
                 ], 401);
             }
 
-            // Determine stage based on user role
-            $stage = $this->getStageByRole($user->role_id);
+            // Stage from role. Supervisor roles (Admin/Staff/Support → 'staff') may act on ANY
+            // stage via an explicit `stage` (this workshop has 1 worker covering QC/packing/
+            // shipout). Dedicated stage roles (QC/Packing/Shipout) stay locked to their own stage.
+            $roleStage = $this->getStageByRole($user->role_id);
+            $requestedStage = $request->input('stage');
+            $stage = ($roleStage === 'staff' && $requestedStage) ? $requestedStage : $roleStage;
 
             Log::info('Change item workflow status request', [
                 'item_id' => $itemId,
