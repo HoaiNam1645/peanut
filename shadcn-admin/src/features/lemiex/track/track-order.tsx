@@ -684,6 +684,14 @@ export function TrackOrder({ orderId }: { orderId: string }) {
     position: string,
     stage: 'staff' | 'qc' | 'packing' | 'shipout'
   ) => {
+    // Not logged in → go to login first, then come back to this track page.
+    if (!loggedIn) {
+      const ret = encodeURIComponent(
+        window.location.pathname + window.location.search
+      )
+      router.push(`/login?redirect=${ret}`)
+      return
+    }
     const designKey = `${itemId}_${position}`
     if (updatingDesign === designKey) return
 
@@ -813,6 +821,14 @@ export function TrackOrder({ orderId }: { orderId: string }) {
   }
 
   const roleId = useMemo(() => readUserRoleId(), [])
+  // Track view is public; actions require login. We show the action button to logged-out
+  // viewers and send them to login on click (the API enforces auth + role/permission).
+  const loggedIn = useMemo(
+    () =>
+      typeof window !== 'undefined' &&
+      !!window.localStorage.getItem('lemiex_access_token'),
+    []
+  )
 
   // -------------------- Early returns --------------------
 
@@ -1097,8 +1113,10 @@ export function TrackOrder({ orderId }: { orderId: string }) {
                                 : roleId === 10
                                   ? 'shipout'
                                   : null
+                          // Logged-out viewers see the action button too; clicking it routes
+                          // them to login (then the API enforces the real role/permission).
                           const canDo = (s: string) =>
-                            isSupervisor || dedicatedStage === s
+                            !loggedIn || isSupervisor || dedicatedStage === s
 
                           const stageButton = (
                             s: 'staff' | 'qc' | 'packing' | 'shipout',

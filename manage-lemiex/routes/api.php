@@ -95,7 +95,7 @@ Route::group(['prefix' => 'orders', 'middleware' => 'jwt.auth'], function () {
     Route::put('/qc-reject', [OrderItemController::class, 'qcRejectItem'])->middleware('permission:orders.qc_reject');
     Route::post('/post-label', [OrderController::class, 'postLabel'])->middleware('permission:orders.update');
     Route::get('/update-label', [OrderController::class, 'updateLabel'])->middleware('permission:orders.update');
-    Route::get('/track/{orderId}', [OrderController::class, 'trackOrder'])->middleware('permission:orders.view.detail');
+    // NOTE: /orders/track/{orderId} moved OUT of this auth group → public view (see below).
     Route::get('/videos', [OrderController::class, 'getAllVideos'])->middleware('permission:orders.view_videos');
     Route::get('/videos/{orderItemId}', [OrderController::class, 'getVideos'])->middleware('permission:orders.view_videos');
     Route::get('/{id}/timeline', [OrderController::class, 'getOrderTimeline'])->middleware('permission:orders.view.detail');
@@ -118,6 +118,10 @@ Route::group(['prefix' => 'orders', 'middleware' => 'jwt.auth'], function () {
 Route::get('/proxy/shipping-label', [OrderController::class, 'proxyShippingLabel']);
 // Proxy endpoint for downloading QR codes and images (avoid CORS)
 Route::get('/proxy/download', [OrderController::class, 'proxyDownload']);
+
+// Public order tracking (VIEW ONLY — no auth, so workshop can scan QR & view without login).
+// Stage mutations (PUT /orders/change-status-items) still require auth + permission.
+Route::get('/orders/track/{orderId}', [OrderController::class, 'trackOrder']);
 
 // Fulfillment Priorities API
 Route::group(['prefix' => 'fulfillment-priorities', 'middleware' => 'jwt.auth'], function () {
