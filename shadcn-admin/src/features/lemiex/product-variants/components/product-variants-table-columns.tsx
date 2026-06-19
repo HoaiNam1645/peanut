@@ -18,14 +18,6 @@ type GetProductVariantsColumnsOptions = {
   onDelete: (product: ProductWithVariants) => void
 }
 
-function formatCurrency(amount?: number | null) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }).format(amount || 0)
-}
-
 export function getProductVariantsColumns({
   isSeller,
   messages,
@@ -161,35 +153,6 @@ export function getProductVariantsColumns({
           >
             {totalStock}
           </span>
-        )
-      },
-    },
-    {
-      accessorKey: 'price_range',
-      header: messages.columns.priceRange,
-      meta: {
-        thClassName: 'min-w-[150px] text-center',
-        tdClassName: 'align-middle text-center',
-      },
-      cell: ({ row }) => {
-        const priceRange = row.original.price_range
-
-        if (!priceRange?.min && !priceRange?.max) {
-          return (
-            <span className='text-xs text-muted-foreground'>{messages.status.na}</span>
-          )
-        }
-
-        if (priceRange?.min === priceRange?.max) {
-          return <span className='font-semibold'>{formatCurrency(priceRange?.min)}</span>
-        }
-
-        return (
-          <div className='space-y-1 text-center'>
-            <div className='font-semibold'>{formatCurrency(priceRange?.min)}</div>
-            <div className='text-xs text-muted-foreground'>{messages.status.to}</div>
-            <div className='font-semibold'>{formatCurrency(priceRange?.max)}</div>
-          </div>
         )
       },
     },
