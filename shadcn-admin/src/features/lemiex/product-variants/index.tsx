@@ -6,6 +6,16 @@ import { FileUp, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -23,6 +33,7 @@ import { LemiexDataTable } from '@/features/lemiex/components/lemiex-data-table'
 import { useI18n } from '@/context/i18n-provider'
 import { getUserRoleName } from '@/services/auth/api'
 import {
+  deleteProduct,
   fetchProductsWithVariants,
   type ProductVariantsFilters,
   type ProductVariantsListResult,
@@ -120,6 +131,8 @@ export function LemiexProductVariants() {
   const [stockDialogProduct, setStockDialogProduct] =
     useState<ProductWithVariants | null>(null)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<ProductWithVariants | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   function updateUrl(nextState: ProductVariantsPageState) {
     const params = buildSearchParams(nextState)
@@ -175,6 +188,28 @@ export function LemiexProductVariants() {
     }
   }, [state, productMessages.loadError])
 
+  async function handleDeleteProduct() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await deleteProduct(deleteTarget.id)
+      toast.success(res.message || 'Đã xoá sản phẩm')
+      setDeleteTarget(null)
+      const refreshed = await fetchProductsWithVariants({
+        page: state.page,
+        per_page: state.perPage,
+        category: 'wood',
+        ...state.filters,
+      })
+      setResult(refreshed)
+    } catch (e) {
+      // apiRequest throws with the backend message (e.g. used in N orders)
+      toast.error(e instanceof Error ? e.message : 'Xoá sản phẩm thất bại')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const columns = useMemo(
     () =>
       getProductVariantsColumns({
@@ -182,8 +217,7 @@ export function LemiexProductVariants() {
         messages: productMessages,
         onView: (product) => router.push(`/lemiex/product-variants/${product.id}`),
         onStock: (product) => setStockDialogProduct(product),
-        onDelete: (product) =>
-          toast.info(productMessages.actions.deletePending.replace('{name}', product.name)),
+        onDelete: (product) => setDeleteTarget(product),
       }),
     [isSeller, productMessages, router]
   )
@@ -431,6 +465,39 @@ export function LemiexProductVariants() {
           setResult(refreshed)
         }}
       />
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null)
+        }}
+      >
+        <AlertDialogContent className='rounded-[10px]'>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xoá sản phẩm?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Xoá &quot;{deleteTarget?.name}&quot; và toàn bộ biến thể (kèm giá, lịch sử kho).
+              Hành động này không thể hoàn tác. Nếu sản phẩm đang được dùng trong đơn hàng,
+              hệ thống sẽ chặn.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className='rounded-[8px]' disabled={deleting}>
+              Huỷ
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className='rounded-[8px] bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault()
+                void handleDeleteProduct()
+              }}
+            >
+              {deleting ? 'Đang xoá…' : 'Xoá'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
