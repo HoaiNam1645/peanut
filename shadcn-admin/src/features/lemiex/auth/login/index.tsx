@@ -45,10 +45,10 @@ export function LemiexLogin({ redirectTo }: LemiexLoginProps) {
           </div>
           <div className='space-y-2'>
             <CardTitle className='text-2xl font-semibold tracking-tight'>
-              Đăng nhập Wecat
+              Đăng nhập THEUNIV
             </CardTitle>
             <CardDescription className='text-sm leading-6'>
-              Nhập tài khoản của bạn để truy cập hệ thống quản trị Wecat.
+              Nhập tài khoản của bạn để truy cập hệ thống quản trị THEUNIV.
             </CardDescription>
           </div>
         </CardHeader>

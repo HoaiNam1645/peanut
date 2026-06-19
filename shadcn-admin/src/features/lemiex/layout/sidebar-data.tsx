@@ -106,7 +106,7 @@ export type PageAccessTreeNode = {
 
 const LEMIEX_SIDEBAR_LABELS = {
   vi: {
-    teamName: 'Không gian Wecat',
+    teamName: 'Không gian THEUNIV',
     teamPlan: 'Sidebar theo vai trò',
     overview: 'Tổng quan',
     commerce: 'Thương mại',
@@ -153,7 +153,7 @@ const LEMIEX_SIDEBAR_LABELS = {
     tiers: 'Tiers',
   },
   en: {
-    teamName: 'Wecat Workspace',
+    teamName: 'THEUNIV Workspace',
     teamPlan: 'Role-aware sidebar',
     overview: 'Overview',
     commerce: 'Commerce',

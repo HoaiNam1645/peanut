@@ -45,7 +45,7 @@ export function AppSidebar() {
                 <span className='text-xs font-bold'>W</span>
               </div>
               <div className='flex flex-col gap-0.5 leading-none'>
-                <span className='font-semibold'>Không gian Wecat</span>
+                <span className='font-semibold'>Không gian THEUNIV</span>
                 <span className='text-[11px] text-muted-foreground'>Sidebar theo vai trò</span>
               </div>
             </SidebarMenuButton>

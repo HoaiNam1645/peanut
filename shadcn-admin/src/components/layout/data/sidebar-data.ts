@@ -13,7 +13,7 @@ function getTeams(_locale: AppLocale): Team[] {
 
 export const sidebarData: SidebarData = {
   user: {
-    name: 'Wecat Admin',
+    name: 'THEUNIV Admin',
     email: 'wecat@workspace.local',
     avatar: '/avatars/shadcn.jpg',
   },
@@ -36,7 +36,7 @@ export function getSidebarNavGroups(
 
 export function getSidebarUser(_teamId: TeamId) {
   return {
-    name: 'Wecat Admin',
+    name: 'THEUNIV Admin',
     email: 'wecat@workspace.local',
     avatar: '/avatars/shadcn.jpg',
   }
