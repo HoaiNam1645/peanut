@@ -1,6 +1,5 @@
 'use client'
 
-import { User } from 'lucide-react'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSearch } from '@/lib/router'
@@ -40,8 +39,12 @@ export function LemiexLogin({ redirectTo }: LemiexLoginProps) {
     <div className='flex min-h-svh items-center justify-center bg-background px-4 py-10 sm:px-6'>
       <Card className='relative z-10 w-full max-w-md border-border/80 bg-card/95 shadow-[0_24px_80px_rgba(0,0,0,0.08)] backdrop-blur-sm dark:shadow-[0_24px_80px_rgba(0,0,0,0.35)]'>
         <CardHeader className='space-y-5 text-center'>
-          <div className='mx-auto flex h-20 w-20 items-center justify-center rounded-3xl border border-border bg-foreground shadow-sm'>
-            <User className='h-10 w-10 text-background' strokeWidth={1.5} />
+          <div className='mx-auto h-20 w-20 overflow-hidden rounded-3xl border border-border shadow-sm'>
+            <img
+              src='https://res.cloudinary.com/dntnoiwtc/image/upload/v1781844203/2026-06-19_11.41.04_ypok2f.jpg'
+              alt='THEUNIV'
+              className='h-full w-full object-cover'
+            />
           </div>
           <div className='space-y-2'>
             <CardTitle className='text-2xl font-semibold tracking-tight'>

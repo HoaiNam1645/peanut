@@ -41,8 +41,12 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size='lg' className='cursor-default select-none hover:bg-transparent active:bg-transparent'>
-              <div className='flex aspect-square size-8 items-center justify-center rounded-lg bg-foreground text-background'>
-                <span className='text-xs font-bold'>W</span>
+              <div className='aspect-square size-8 overflow-hidden rounded-lg'>
+                <img
+                  src='https://res.cloudinary.com/dntnoiwtc/image/upload/v1781844203/2026-06-19_11.41.04_ypok2f.jpg'
+                  alt='THEUNIV'
+                  className='size-full object-cover'
+                />
               </div>
               <div className='flex flex-col gap-0.5 leading-none'>
                 <span className='font-semibold'>Không gian THEUNIV</span>

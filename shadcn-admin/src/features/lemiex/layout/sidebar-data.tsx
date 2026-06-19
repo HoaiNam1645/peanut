@@ -206,9 +206,11 @@ function LemiexLogo(props: React.ComponentProps<'div'>) {
 
   return React.createElement(
     'div',
-    { className, ...rest },
-    React.createElement(ShieldCheck, {
-      className: 'size-4',
+    { className: `${className ?? ''} overflow-hidden`.trim(), ...rest },
+    React.createElement('img', {
+      src: 'https://res.cloudinary.com/dntnoiwtc/image/upload/v1781844203/2026-06-19_11.41.04_ypok2f.jpg',
+      alt: 'THEUNIV',
+      className: 'size-full object-cover',
     })
   )
 }
