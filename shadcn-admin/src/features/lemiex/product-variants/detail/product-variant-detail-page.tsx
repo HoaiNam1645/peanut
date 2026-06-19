@@ -73,7 +73,7 @@ const detailFallbackMessages = {
   sizes: 'Sizes',
   variantsTitle: 'Variants',
   variantsCount: 'variants',
-  noData: 'N/A',
+  noData: '-',
   save: 'Save',
   cancel: 'Cancel',
   edit: 'Edit',
@@ -111,7 +111,7 @@ function formatCurrency(amount?: number | null) {
 }
 
 function formatDate(dateString?: string | null) {
-  if (!dateString) return 'N/A'
+  if (!dateString) return '-'
 
   try {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -122,29 +122,8 @@ function formatDate(dateString?: string | null) {
       minute: '2-digit',
     })
   } catch {
-    return 'N/A'
+    return '-'
   }
-}
-
-function getColorValue(color?: string | null) {
-  const name = (color || '').toLowerCase()
-  const map: Record<string, string> = {
-    black: '#000000',
-    white: '#ffffff',
-    red: '#ef4444',
-    blue: '#3b82f6',
-    green: '#10b981',
-    yellow: '#f59e0b',
-    purple: '#8b5cf6',
-    pink: '#ec4899',
-    gray: '#6b7280',
-    grey: '#6b7280',
-    navy: '#1e3a8a',
-    brown: '#92400e',
-    orange: '#f97316',
-  }
-
-  return map[name] || color || '#9ca3af'
 }
 
 function countTierPrices(
@@ -224,9 +203,9 @@ export function LemiexProductVariantDetailPage({ id }: Props) {
   }, [page, pageSize, variants.length])
 
   const priceRangeLabel = useMemo(() => {
-    if (!summary?.price_range) return 'N/A'
+    if (!summary?.price_range) return '-'
     const { min, max } = summary.price_range
-    if (min === undefined && max === undefined) return 'N/A'
+    if (min === undefined && max === undefined) return '-'
     if (min === max) return formatCurrency(min)
     return `${formatCurrency(min)} - ${formatCurrency(max)}`
   }, [summary])
@@ -363,45 +342,6 @@ export function LemiexProductVariantDetailPage({ id }: Props) {
             <div className='space-y-1'>
               <div className='font-medium text-foreground'>{variant.variant_id}</div>
               <div className='text-xs text-muted-foreground'>{variant.sku || m.noData}</div>
-            </div>
-          )
-        },
-      },
-      {
-        accessorKey: 'color',
-        header: m.columns.color,
-        meta: {
-          thClassName: 'text-center w-[140px]',
-          tdClassName: 'text-center',
-        },
-        cell: ({ row }) => {
-          const variant = row.original
-          const isEditing = editingVariantId === variant.id && editingVariant
-          const activeVariant = isEditing ? editingVariant : variant
-
-          if (isEditing) {
-            return (
-              <Input
-                className='mx-auto h-9 max-w-[132px] rounded-[6px]'
-                value={activeVariant.color || ''}
-                onChange={(e) => updateEditingVariant('color', e.target.value)}
-              />
-            )
-          }
-
-          return (
-            <div className='inline-flex items-center justify-center gap-2'>
-              <span
-                className='size-3.5 rounded-full border border-border'
-                style={{
-                  backgroundColor: getColorValue(variant.color),
-                  boxShadow:
-                    (variant.color || '').toLowerCase() === 'white'
-                      ? 'inset 0 0 0 1px #d1d5db'
-                      : undefined,
-                }}
-              />
-              <span className='text-sm'>{variant.color || m.noData}</span>
             </div>
           )
         },
