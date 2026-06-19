@@ -112,6 +112,51 @@ class ProductService
     }
 
     /**
+     * Delete a product and all its variants (+ related price / stock-audit / production rows).
+     * Blocked if any variant is already referenced by an order item.
+     */
+    public function deleteProduct(int $id): array
+    {
+        $product = Product::with('variants')->find($id);
+        if (!$product) {
+            return ['success' => false, 'code' => 404, 'message' => 'Không tìm thấy sản phẩm'];
+        }
+
+        $variantIds = $product->variants->pluck('variant_id')->filter()->values()->all();
+
+        // Don't allow deleting a product whose variants are used in any order.
+        if (!empty($variantIds)) {
+            $usedCount = \App\Models\OrderItem::whereIn('variant_id', $variantIds)->count();
+            if ($usedCount > 0) {
+                return [
+                    'success' => false,
+                    'code' => 409,
+                    'message' => "Không thể xoá: sản phẩm có biến thể đang dùng trong {$usedCount} mục đơn hàng. Hãy xử lý/huỷ các đơn đó trước.",
+                ];
+            }
+        }
+
+        DB::transaction(function () use ($product) {
+            foreach ($product->variants as $variant) {
+                $variant->priceVariants()->delete();
+                $variant->stockAuditLogs()->delete();
+                $variant->productions()->delete();
+            }
+            $product->variants()->delete();
+            $product->delete();
+        });
+
+        Log::info('Product deleted', ['product_id' => $id, 'variants' => count($variantIds)]);
+
+        return [
+            'success' => true,
+            'code' => 200,
+            'message' => 'Đã xoá sản phẩm và toàn bộ biến thể',
+            'data' => ['deleted_variants' => count($variantIds)],
+        ];
+    }
+
+    /**
      * Get filter options for products
      */
     public function getFilterOptions(): array

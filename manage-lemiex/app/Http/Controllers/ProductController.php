@@ -146,6 +146,34 @@ class ProductController extends Controller
     }
 
     /**
+     * Delete a product and all its variants. Blocked if used in orders.
+     */
+    public function deleteProduct($id): JsonResponse
+    {
+        try {
+            $result = $this->productService->deleteProduct((int) $id);
+
+            return response()->json([
+                'code' => $result['code'],
+                'status' => $result['success'],
+                'message' => $result['message'],
+                'data' => $result['data'] ?? null,
+            ], $result['code']);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Delete product failed', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'code' => HttpCode::SERVER_ERROR,
+                'status' => false,
+                'message' => 'Xoá sản phẩm thất bại: ' . $e->getMessage(),
+            ], HttpCode::SERVER_ERROR);
+        }
+    }
+
+    /**
      * Update product information only
      */
     public function updateProduct(Request $request, $id): JsonResponse

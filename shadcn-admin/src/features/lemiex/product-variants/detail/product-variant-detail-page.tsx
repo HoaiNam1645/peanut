@@ -22,6 +22,16 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { LemiexDataTable } from '@/features/lemiex/components/lemiex-data-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
@@ -38,6 +48,7 @@ import {
   type ProductDetailResult,
   type ProductTier,
   type ProductVariantSummary,
+  deleteProduct,
   updateProductVariant,
   updateProductVariantPricing,
 } from '@/services/products/api'
@@ -156,6 +167,8 @@ export function LemiexProductVariantDetailPage({ id }: Props) {
   const [editingVariantId, setEditingVariantId] = useState<number | null>(null)
   const [editingVariant, setEditingVariant] = useState<EditableVariant | null>(null)
   const [editProductOpen, setEditProductOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [pricingOpen, setPricingOpen] = useState(false)
   const [pricingVariant, setPricingVariant] = useState<ProductVariantSummary | null>(null)
   const [page, setPage] = useState(1)
@@ -221,6 +234,22 @@ export function LemiexProductVariantDetailPage({ id }: Props) {
     const start = (page - 1) * pageSize
     return variants.slice(start, start + pageSize)
   }, [page, pageSize, variants])
+
+  async function handleDeleteProduct() {
+    if (!product) return
+    setDeleting(true)
+    try {
+      const res = await deleteProduct(product.id)
+      toast.success(res.message || 'Đã xoá sản phẩm')
+      setDeleteOpen(false)
+      router.push('/lemiex/product-variants')
+    } catch (e) {
+      // apiRequest throws with the backend message (e.g. "đang dùng trong N đơn")
+      toast.error(e instanceof Error ? e.message : 'Xoá sản phẩm thất bại')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   function startEditVariant(variant: ProductVariantSummary) {
     setEditingVariantId(variant.id)
@@ -971,10 +1000,20 @@ export function LemiexProductVariantDetailPage({ id }: Props) {
                     </div>
 
                     {!isSeller ? (
-                      <Button className='h-10 rounded-[8px] px-4 text-[12px]' onClick={() => setEditProductOpen(true)}>
-                        <Pencil className='size-4' />
-                        {m.editProduct}
-                      </Button>
+                      <div className='flex items-center gap-2'>
+                        <Button className='h-10 rounded-[8px] px-4 text-[12px]' onClick={() => setEditProductOpen(true)}>
+                          <Pencil className='size-4' />
+                          {m.editProduct}
+                        </Button>
+                        <Button
+                          variant='destructive'
+                          className='h-10 rounded-[8px] px-4 text-[12px]'
+                          onClick={() => setDeleteOpen(true)}
+                        >
+                          <Trash2 className='size-4' />
+                          Xoá sản phẩm
+                        </Button>
+                      </div>
                     ) : null}
                   </div>
                 </div>
@@ -1072,6 +1111,34 @@ export function LemiexProductVariantDetailPage({ id }: Props) {
           readOnly={isSeller}
           onSave={handleSavePricing}
         />
+
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent className='rounded-[10px]'>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Xoá sản phẩm?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Xoá &quot;{product?.name}&quot; và toàn bộ {summary?.total_variants || 0} biến thể
+                (kèm giá, lịch sử kho). Hành động này không thể hoàn tác. Nếu sản phẩm đang được
+                dùng trong đơn hàng, hệ thống sẽ chặn.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className='rounded-[8px]' disabled={deleting}>
+                Huỷ
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className='rounded-[8px] bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                disabled={deleting}
+                onClick={(e) => {
+                  e.preventDefault()
+                  void handleDeleteProduct()
+                }}
+              >
+                {deleting ? 'Đang xoá…' : 'Xoá'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </Main>
     </>
   )

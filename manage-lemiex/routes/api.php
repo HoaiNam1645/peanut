@@ -202,6 +202,7 @@ Route::group(['prefix' => 'products', 'middleware' => 'jwt.auth'], function () {
     // Dynamic routes - phải đặt cuối
     Route::put('/{id}', [ProductController::class, 'updateProduct'])->middleware('permission:products.update');
     Route::get('/{id}', [ProductController::class, 'getProductDetail'])->middleware('permission:products.view');
+    Route::delete('/{id}', [ProductController::class, 'deleteProduct'])->middleware('permission:products.update');
 });
 
 // Stock Management API (requires authentication and staff role)
