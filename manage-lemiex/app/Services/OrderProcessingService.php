@@ -156,42 +156,93 @@ class OrderProcessingService
     {
         $log = [];
         try {
-            $items = OrderItem::where('order_id', $order->id)->get();
-            $totalQuantity = $items->sum('quantity');
-            $stt = 1;
-            $itemIndex = 1; // Sequential item number (1, 2, 3, ...)
+            // Use the SAME QR generator as the main order-creation flow
+            // (createQRCodesBatchSimple → /pes-api/qr/generate-simple) so remade QR
+            // matches freshly-created QR. The old per-unit createSingleQR (/qr/generate)
+            // produced a different ("old") format.
+            $serviceUrl = env('QR_SERVICE_URL_WOOD', 'https://manage.lemiex.us/pes-api/qr/generate-simple');
+            $trackingBase = env('FRONTEND_TRACKING_URL', config('app.url'));
 
+            $items = OrderItem::where('order_id', $order->id)->get();
+            $totalQuantity = (int) $items->sum('quantity');
+
+            // Clear existing QR metas (+ stored files) for the rework items.
             foreach ($items as $item) {
-                // If this item is in the rework list, clear existing QRs first
                 if (in_array($item->id, $itemIds)) {
                     $existingMetas = OrderItemMeta::where('order_item_id', $item->id)
                         ->where('meta_key', 'special_design_qr')
                         ->get();
-
                     foreach ($existingMetas as $meta) {
                         $this->deleteOldQrFile($meta->meta_value);
                         $meta->delete();
                     }
                 }
+            }
 
+            // Build the batch payload. stt/itemIndex count across ALL items (to keep the
+            // same numbering as creation); only the rework items go into the payload.
+            $payloadItems = [];
+            $itemRefs = [];
+            $stt = 1;
+            $itemIndex = 1;
+            foreach ($items as $item) {
                 $variant = ProductVariant::where('variant_id', $item->variant_id)->first();
-
-                for ($i = 0; $i < $item->quantity; $i++) {
-                    // Only generate if it's in the list
+                $units = (int) $item->quantity;
+                for ($i = 0; $i < $units; $i++) {
                     if (in_array($item->id, $itemIds)) {
-                        try {
-                            $this->createSingleQR($order, $item, $variant, $stt, $totalQuantity, $itemIndex);
-                            $log[] = ['status' => true, 'stt' => $stt, 'item_id' => $item->id];
-                        } catch (Exception $e) {
-                            $log[] = ['status' => false, 'stt' => $stt, 'item_id' => $item->id, 'error' => $e->getMessage()];
-                        }
+                        $payloadItems[] = [
+                            'item_id' => $item->id,
+                            'stt' => $stt,
+                            'total' => $totalQuantity,
+                            'style' => $variant->style ?? '',
+                            'color' => $variant->color ?? '',
+                            'size' => $variant->size ?? '',
+                            'pageqr' => "{$trackingBase}/track/{$order->id}?stt={$stt}&item_id={$item->id}&item_stt={$itemIndex}",
+                        ];
+                        $itemRefs[] = ['item_id' => $item->id, 'stt' => $stt];
                     }
                     $stt++;
                 }
-                $itemIndex++; // Increment after each item
+                $itemIndex++;
+            }
+
+            if (empty($payloadItems)) {
+                return $log;
+            }
+
+            $response = Http::timeout(60)
+                ->withOptions(['verify' => config('app.http_verify_ssl', true)])
+                ->post($serviceUrl, [
+                    'order_id' => $order->id,
+                    'items' => $payloadItems,
+                ]);
+
+            if (!$response->successful()) {
+                Log::error('Remake QR batch service failed', [
+                    'order_id' => $order->id,
+                    'status' => $response->status(),
+                    'body' => mb_substr((string) $response->body(), 0, 500),
+                ]);
+                throw new Exception('QR batch service failed: ' . $response->status());
+            }
+
+            $urls = $response->json('urls') ?? [];
+            foreach ($urls as $idx => $url) {
+                $ref = $itemRefs[$idx] ?? null;
+                if (!$ref || empty($url)) {
+                    continue;
+                }
+                OrderItemMeta::create([
+                    'order_item_id' => $ref['item_id'],
+                    'meta_key' => 'special_design_qr',
+                    'meta_value' => $url,
+                    'switch' => 0,
+                    'status' => false,
+                ]);
+                $log[] = ['status' => true, 'stt' => $ref['stt'], 'item_id' => $ref['item_id'], 'url' => $url];
             }
         } catch (Exception $e) {
-            Log::error('Failed to recreate QR codes', [
+            Log::error('Failed to recreate QR codes (batch)', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage()
             ]);
