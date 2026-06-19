@@ -1037,6 +1037,7 @@ export type ShipDvxOrder = {
   shippingPartner?: { name?: string } | string | null
   recipient?: { name?: string; city?: string; state?: string; country?: string } | null
   createdAt?: string
+  statusHistory?: Array<{ status?: string; timestamp?: string; note?: string }>
 }
 
 export type ShipDvxOrdersResult = {

@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { RefreshCw } from 'lucide-react'
+import { Eye, RefreshCw } from 'lucide-react'
 import {
   fetchShipDvxOrders,
   type ShipDvxOrder,
@@ -16,6 +16,13 @@ import { LanguageSwitch } from '@/components/language-switch'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { LemiexDataTable } from '@/features/lemiex/components/lemiex-data-table'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 function partnerName(p: ShipDvxOrder['shippingPartner']): string {
   if (!p) return '-'
@@ -40,7 +47,7 @@ function statusClass(status?: string): string {
   }
 }
 
-const columns: ColumnDef<ShipDvxOrder, unknown>[] = [
+const baseColumns: ColumnDef<ShipDvxOrder, unknown>[] = [
   {
     accessorKey: 'orderNumber',
     header: 'Order Number',
@@ -131,6 +138,30 @@ export function LemiexShipDvxOrders() {
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  const [selected, setSelected] = useState<ShipDvxOrder | null>(null)
+
+  const columns = useMemo<ColumnDef<ShipDvxOrder, unknown>[]>(
+    () => [
+      ...baseColumns,
+      {
+        id: 'journey',
+        header: 'Hành trình',
+        cell: ({ row }) => (
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            className='h-7 rounded-[6px] text-xs'
+            onClick={() => setSelected(row.original)}
+          >
+            <Eye className='size-3.5' />
+            Xem
+          </Button>
+        ),
+      },
+    ],
+    []
+  )
 
   const load = useCallback(async (p: number, size: number) => {
     setLoading(true)
@@ -205,6 +236,54 @@ export function LemiexShipDvxOrders() {
           />
         </div>
       </Main>
+
+      <Dialog
+        open={Boolean(selected)}
+        onOpenChange={(o) => {
+          if (!o) setSelected(null)
+        }}
+      >
+        <DialogContent className='rounded-[8px] sm:max-w-lg'>
+          <DialogHeader>
+            <DialogTitle>Hành trình đơn {selected?.orderNumber ?? ''}</DialogTitle>
+            <DialogDescription>
+              {partnerName(selected?.shippingPartner)} · Barcode:{' '}
+              {selected?.barcode ?? '-'} · Hiện tại: {selected?.status ?? '-'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className='max-h-[60vh] overflow-y-auto pr-1'>
+            {selected?.statusHistory && selected.statusHistory.length > 0 ? (
+              <ol className='relative ml-1 space-y-4 border-l border-border pl-5'>
+                {selected.statusHistory.map((h, i) => (
+                  <li key={i} className='relative'>
+                    <span className='absolute -left-[23px] top-1 size-3 rounded-full bg-primary ring-2 ring-background' />
+                    <div className='flex flex-wrap items-center gap-2'>
+                      <span
+                        className={`inline-block rounded-[6px] px-2 py-0.5 text-xs font-medium ${statusClass(h.status)}`}
+                      >
+                        {h.status ?? '-'}
+                      </span>
+                      <span className='text-xs text-muted-foreground'>
+                        {h.timestamp
+                          ? new Date(h.timestamp).toLocaleString('vi-VN')
+                          : ''}
+                      </span>
+                    </div>
+                    {h.note ? (
+                      <div className='mt-1 text-[13px] text-foreground'>{h.note}</div>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className='py-6 text-center text-sm text-muted-foreground'>
+                Chưa có lịch sử trạng thái cho đơn này.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
