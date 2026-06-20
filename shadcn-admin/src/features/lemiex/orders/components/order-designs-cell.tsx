@@ -68,7 +68,10 @@ function OrderDesignsCellComponent({ order }: { order: OrderListItem }) {
               <Badge className='rounded-[6px] bg-primary px-2 py-0.5 text-[12px] font-bold text-primary-foreground'>
                 Size {item.size || item.variant?.size || '—'}
               </Badge>
-              <span className='text-[12px] font-semibold'>
+              <span
+                className='max-w-[380px] truncate text-[12px] font-semibold'
+                title={item.product_name || 'Item'}
+              >
                 {item.product_name || 'Item'}
               </span>
               <span className='text-[11px] text-muted-foreground'>
