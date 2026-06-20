@@ -72,6 +72,9 @@ function OrderDesignsCellComponent({ order }: { order: OrderListItem }) {
     <div className='space-y-3'>
       {items.map((item, idx) => {
         const designs = item.designs || []
+        const qrUrls = (item.qr_codes || []).filter(
+          (q): q is string => !!q && /^https?:\/\//i.test(q)
+        )
         const hasFiles = designs.some(
           (d) => d.pdf_url || d.dst_url || d.pes_url || d.emb_url
         )
@@ -114,6 +117,13 @@ function OrderDesignsCellComponent({ order }: { order: OrderListItem }) {
                   />
                 ) : null
               )}
+              {qrUrls.map((q, qi) => (
+                <DesignThumb
+                  key={`q-${qi}`}
+                  url={q}
+                  label={qrUrls.length > 1 ? `QR ${qi + 1}` : 'QR'}
+                />
+              ))}
             </div>
 
             {hasFiles ? (
