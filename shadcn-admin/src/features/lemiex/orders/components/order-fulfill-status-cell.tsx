@@ -74,7 +74,7 @@ export function OrderFulfillStatusCell({
   const role = getUserRoleName(user)
   const [pending, setPending] = useState(false)
 
-  const canAdminEdit = role === 'Admin' || role === 'Staff'
+  const canAdminEdit = role === 'Admin' || role === 'Staff' || role === 'Designer'
   const canSellerEdit =
     role === 'Seller' &&
     (order.fulfill_status === 'new_order' ||

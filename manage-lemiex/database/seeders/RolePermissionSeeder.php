@@ -85,6 +85,7 @@ class RolePermissionSeeder extends Seeder
                 'dashboard.view',
                 'orders.view',
                 'orders.view.detail',
+                'orders.change_status',
                 'orders.upload_video',
                 'orders.view_videos',
                 'orders.remake',
