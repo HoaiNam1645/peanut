@@ -17,7 +17,7 @@ class BatchChangeFulfillStatusRequest extends FormRequest
 
         return $user &&
             $user->role &&
-            in_array($user->role->id, [UserRole::SELLER, UserRole::STAFF, UserRole::ADMIN, UserRole::HR]);
+            in_array($user->role->id, [UserRole::SELLER, UserRole::STAFF, UserRole::ADMIN, UserRole::HR, UserRole::DESIGNER]);
     }
 
     protected function prepareForValidation()

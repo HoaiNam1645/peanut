@@ -40,6 +40,16 @@ class OrderFulfillStatusService
         $currentStatus = $order->fulfill_status;
         $userRole = $user->role->name ?? null;
 
+        // Designer is granted full, admin-like control over fulfill status
+        // changes. Treating the role as Admin here makes it follow the exact
+        // same branches (including getTransitionRules, which receives this
+        // $userRole), so Designer == Admin everywhere below — subject only to
+        // the absolute blocks that even Admin obeys (cannot move TO
+        // new_order / in_stock).
+        if ($userRole === 'Designer') {
+            $userRole = 'Admin';
+        }
+
         // ABSOLUTE BLOCK: No one can transition TO new_order status
         // This rule applies to ALL roles including Admin
         if ($newStatus === OrderFulfillStatus::NEW_ORDER && $currentStatus !== OrderFulfillStatus::NEW_ORDER) {
