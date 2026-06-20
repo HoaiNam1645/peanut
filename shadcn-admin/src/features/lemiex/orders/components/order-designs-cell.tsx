@@ -72,8 +72,10 @@ function OrderDesignsCellComponent({ order }: { order: OrderListItem }) {
     <div className='space-y-3'>
       {items.map((item, idx) => {
         const designs = item.designs || []
+        // Match the order-detail page: render every non-empty QR value as an
+        // image (DesignThumb falls back to a link if it isn't a valid image).
         const qrUrls = (item.qr_codes || []).filter(
-          (q): q is string => !!q && /^https?:\/\//i.test(q)
+          (q): q is string => typeof q === 'string' && q.length > 0
         )
         const hasFiles = designs.some(
           (d) => d.pdf_url || d.dst_url || d.pes_url || d.emb_url
