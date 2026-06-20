@@ -1,6 +1,6 @@
 'use client'
 
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { type OrderListItem } from '@/services/orders/api'
 
@@ -18,10 +18,19 @@ function getPreviewUrl(url?: string | null) {
   if (!url) return null
   const id = getGoogleDriveId(url)
   if (id) return `https://lh3.googleusercontent.com/d/${id}=s400`
+  // Design/mockup images are full-resolution (often several MB) → very slow as
+  // thumbnails. Serve a small, CDN-cached webp through the wsrv.nl image proxy.
+  // The <a href> still points at the original URL, so clicking opens the full image.
+  if (/^https?:\/\//i.test(url)) {
+    return `https://wsrv.nl/?url=${encodeURIComponent(
+      url
+    )}&w=224&h=224&fit=inside&output=webp&q=80`
+  }
   return url
 }
 
 function DesignThumb({ url, label }: { url: string; label: string }) {
+  const [failed, setFailed] = useState(false)
   return (
     <a
       href={url}
@@ -30,14 +39,21 @@ function DesignThumb({ url, label }: { url: string; label: string }) {
       className='block shrink-0'
       title={label}
     >
-      <div className='h-28 w-28 overflow-hidden rounded-[6px] border bg-background'>
-        <img
-          src={getPreviewUrl(url) ?? url}
-          alt={label}
-          loading='lazy'
-          decoding='async'
-          className='h-28 w-28 object-contain'
-        />
+      <div className='flex h-28 w-28 items-center justify-center overflow-hidden rounded-[6px] border bg-background'>
+        {failed ? (
+          <span className='px-2 text-center text-[10px] text-muted-foreground'>
+            Mở file ↗
+          </span>
+        ) : (
+          <img
+            src={getPreviewUrl(url) ?? url}
+            alt={label}
+            loading='lazy'
+            decoding='async'
+            className='h-28 w-28 object-contain'
+            onError={() => setFailed(true)}
+          />
+        )}
       </div>
       <div className='mt-0.5 w-28 truncate text-center text-[10px] font-medium uppercase text-muted-foreground'>
         {label}
@@ -57,7 +73,7 @@ function OrderDesignsCellComponent({ order }: { order: OrderListItem }) {
       {items.map((item, idx) => {
         const designs = item.designs || []
         const hasFiles = designs.some(
-          (d) => d.dst_url || d.pes_url || d.emb_url
+          (d) => d.pdf_url || d.dst_url || d.pes_url || d.emb_url
         )
         return (
           <div
