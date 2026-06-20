@@ -10,9 +10,13 @@ export type LemiexRole =
   | 'Support'
   | 'Seller'
   | 'Staff'
+  | 'Supplier'
+  | 'Designer'
+  | 'Finance'
   | 'QC'
   | 'Packing'
   | 'Shipout'
+  | 'HR'
 
 export interface AuthUser {
   id?: number | string

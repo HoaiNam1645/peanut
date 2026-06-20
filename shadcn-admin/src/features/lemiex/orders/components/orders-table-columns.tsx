@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { OrderActionsCell } from '@/features/lemiex/orders/components/order-actions-cell'
 import { OrderFulfillStatusCell } from '@/features/lemiex/orders/components/order-fulfill-status-cell'
 import { OrderItemsCell } from '@/features/lemiex/orders/components/order-items-cell'
+import { OrderDesignsCell } from '@/features/lemiex/orders/components/order-designs-cell'
 import { FALLBACK_FULFILL_STATUS_OPTIONS } from '@/features/lemiex/orders/constants'
 import {
   SelectAllOrdersCheckbox,
@@ -98,6 +99,7 @@ export function getOrdersTableColumns(
   const role = getUserRoleName(user)
   const showSellerColumn = role === 'Admin' || role === 'Staff'
   const showTicketColumn = role !== 'Staff'
+  const isDesigner = role === 'Designer'
   const effectiveFulfillStatusOptions =
     fulfillStatusOptions.length > 0
       ? fulfillStatusOptions
@@ -183,6 +185,16 @@ export function getOrdersTableColumns(
         <OrderItemsCell order={row.original} user={user} />
       ),
     },
+    ...(isDesigner
+      ? [
+          {
+            id: 'designs',
+            header: 'Design (đầy đủ)',
+            meta: { thClassName: 'min-w-[440px]' },
+            cell: ({ row }) => <OrderDesignsCell order={row.original} />,
+          } as ColumnDef<LemiexOrderRow>,
+        ]
+      : []),
     {
       id: 'logistics',
       header: messages.headers.tracking,

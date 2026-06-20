@@ -48,9 +48,13 @@ const DEFAULT_ROLE_PERMISSIONS: Record<LemiexRole, string[]> = {
     '/lemiex/payroll/*',
     '/lemiex/payroll/tiers',
   ],
+  Supplier: ['/lemiex/welcome'],
+  Designer: ['/lemiex/orders', '/lemiex/orders/*'],
+  Finance: ['/lemiex/welcome'],
   QC: ['/lemiex/welcome'],
   Packing: ['/lemiex/welcome'],
   Shipout: ['/lemiex/welcome'],
+  HR: ['/lemiex/welcome'],
 }
 
 const PAGE_ACCESS_PATTERN_OVERRIDES: Record<string, string[]> = {
