@@ -161,6 +161,21 @@ class BuyLabelService
             $indexMap = []; // payload index => order meta
             $invalid = [];
             foreach ($orders as $order) {
+                // Orders that already carry a label (e.g. TikTok-provided: they
+                // have tracking_id + shipping_label) have no price to preview —
+                // their payload would be a HAS_LABEL forward (shippingPartner
+                // TIKTOK + barcode + labelUrl), which ShipDVX preview-prices
+                // rejects ("orders validation error"), failing the whole batch.
+                // Report them as ineligible instead of sending them.
+                if (!empty($order->tracking_id) && !empty($order->shipping_label)) {
+                    $invalid[] = [
+                        BuyLabelConstants::FIELD_ORDER_ID => $order->id,
+                        BuyLabelConstants::FIELD_REF_ID => $order->ref_id,
+                        BuyLabelConstants::FIELD_REASONS => ['Đơn đã có label sẵn — không cần preview giá'],
+                    ];
+                    continue;
+                }
+
                 $reasons = $this->validateShipDvxOrder($order);
                 if (!empty($reasons)) {
                     $invalid[] = [
