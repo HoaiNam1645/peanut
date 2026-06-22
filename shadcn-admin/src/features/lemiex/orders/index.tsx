@@ -625,24 +625,31 @@ export function LemiexOrders() {
               {ordersMessages.copyTracking}
             </Button>
 
-            <Button
-              type='button'
-              size='sm'
-              variant='outline'
-              className='h-8 rounded-[6px] text-[12px]'
-              onClick={handleOpenForward}
-            >
-              Tạo vận chuyển
-            </Button>
+            {/* Show only the button that matches the selected orders:
+                has label+tracking → "Tạo vận chuyển"; no label → "Mua label".
+                If a mix is selected, both show (each handles its own subset). */}
+            {forwardEligibleIds.length > 0 ? (
+              <Button
+                type='button'
+                size='sm'
+                variant='outline'
+                className='h-8 rounded-[6px] text-[12px]'
+                onClick={handleOpenForward}
+              >
+                Tạo vận chuyển
+              </Button>
+            ) : null}
 
-            <Button
-              type='button'
-              size='sm'
-              className='h-8 rounded-[6px] text-[12px]'
-              onClick={handleOpenBuyLabel}
-            >
-              Mua label
-            </Button>
+            {buyEligibleIds.length > 0 ? (
+              <Button
+                type='button'
+                size='sm'
+                className='h-8 rounded-[6px] text-[12px]'
+                onClick={handleOpenBuyLabel}
+              >
+                Mua label
+              </Button>
+            ) : null}
           </DataTableBulkActions>
 
           <LemiexDataTable
