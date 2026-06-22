@@ -236,11 +236,31 @@ export function LemiexOrders() {
   const [pendingBuyIds, setPendingBuyIds] = useState<Array<number | string>>([])
   const [storeRequiredOpen, setStoreRequiredOpen] = useState(false)
   const [typeDialogOpen, setTypeDialogOpen] = useState(false)
+  const [createShipConfirmOpen, setCreateShipConfirmOpen] = useState(false)
+  const [forwardIds, setForwardIds] = useState<Array<number | string>>([])
 
   const selectedOrders = useMemo(
     () =>
       result.orders.filter((order) => selectedOrderIds.includes(String(order.id))),
     [result.orders, selectedOrderIds]
+  )
+  // Two distinct operations (per ShipDVX docs):
+  // - "Tạo vận chuyển" (forward): order already carries a label (tracking + label_url,
+  //   e.g. TikTok) → forwarded as-is, NO price to preview.
+  // - "Mua label" (buy): order has no label → ShipDVX buys one → needs a price preview.
+  const forwardEligibleIds = useMemo(
+    () =>
+      selectedOrders
+        .filter((o) => Boolean(o.shipping?.tracking_id && o.shipping?.label_url))
+        .map((o) => String(o.id)),
+    [selectedOrders]
+  )
+  const buyEligibleIds = useMemo(
+    () =>
+      selectedOrders
+        .filter((o) => !(o.shipping?.tracking_id && o.shipping?.label_url))
+        .map((o) => String(o.id)),
+    [selectedOrders]
   )
   const role = getUserRoleName(currentUser)
   const canCreateOrder =
@@ -431,8 +451,10 @@ export function LemiexOrders() {
     }
   }
 
-  const handleBuyLabel = async () => {
-    const ids = pendingBuyIds.length ? pendingBuyIds : selectedOrderIds
+  // Shared create step for BOTH operations: forward (has label) and buy (no label).
+  // The backend buyLabelViaShipDvx builds the right payload per order (HAS_LABEL forward
+  // vs NO_LABEL buy); we just pass the correctly-filtered ids.
+  const runCreateShipping = async (ids: Array<number | string>) => {
     if (ids.length === 0) {
       toast.error(ordersMessages.selectAtLeastOneOrder)
       return
@@ -456,8 +478,10 @@ export function LemiexOrders() {
       )
 
       setBuyLabelConfirmOpen(false)
+      setCreateShipConfirmOpen(false)
       setSelectedOrderIds([])
       setPendingBuyIds([])
+      setForwardIds([])
       setRefreshKey((value) => value + 1)
     } catch (error) {
       toast.error(
@@ -466,6 +490,35 @@ export function LemiexOrders() {
     } finally {
       setBuyingLabel(false)
     }
+  }
+
+  // "Mua label" → only orders WITHOUT a label, with a price preview first.
+  const handleOpenBuyLabel = () => {
+    if (buyEligibleIds.length === 0) {
+      toast.error('Không có đơn nào (chưa có label) để mua label trong các đơn đã chọn')
+      return
+    }
+    if (forwardEligibleIds.length > 0) {
+      toast.info(
+        `${forwardEligibleIds.length} đơn đã có label sẽ không mua — dùng "Tạo vận chuyển"`
+      )
+    }
+    void handleOpenPreview(buyEligibleIds)
+  }
+
+  // "Tạo vận chuyển" → only orders WITH a label, forwarded directly (no price preview).
+  const handleOpenForward = () => {
+    if (forwardEligibleIds.length === 0) {
+      toast.error('Không có đơn nào (đã có label) để tạo vận chuyển trong các đơn đã chọn')
+      return
+    }
+    if (buyEligibleIds.length > 0) {
+      toast.info(
+        `${buyEligibleIds.length} đơn chưa có label sẽ không forward — dùng "Mua label"`
+      )
+    }
+    setForwardIds(forwardEligibleIds)
+    setCreateShipConfirmOpen(true)
   }
 
   const handleCreateOrderClick = async () => {
@@ -575,10 +628,20 @@ export function LemiexOrders() {
             <Button
               type='button'
               size='sm'
+              variant='outline'
               className='h-8 rounded-[6px] text-[12px]'
-              onClick={() => void handleOpenPreview(selectedOrderIds)}
+              onClick={handleOpenForward}
             >
-              {ordersMessages.buyLabel}
+              Tạo vận chuyển
+            </Button>
+
+            <Button
+              type='button'
+              size='sm'
+              className='h-8 rounded-[6px] text-[12px]'
+              onClick={handleOpenBuyLabel}
+            >
+              Mua label
             </Button>
           </DataTableBulkActions>
 
@@ -615,7 +678,7 @@ export function LemiexOrders() {
           <AlertDialogHeader>
             <AlertDialogTitle>{ordersMessages.confirmBuyLabel}</AlertDialogTitle>
             <AlertDialogDescription>
-              Xem trước cước vận chuyển cho {selectedOrderIds.length} đơn trước khi xác nhận:
+              Xem trước cước vận chuyển cho {pendingBuyIds.length} đơn (chưa có label) trước khi mua:
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -685,7 +748,7 @@ export function LemiexOrders() {
               className='rounded-[6px]'
               onClick={(event) => {
                 event.preventDefault()
-                void handleBuyLabel()
+                void runCreateShipping(pendingBuyIds)
               }}
               disabled={
                 buyingLabel ||
@@ -694,6 +757,36 @@ export function LemiexOrders() {
               }
             >
               {buyingLabel ? ordersMessages.processing : ordersMessages.confirmPurchase}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={createShipConfirmOpen}
+        onOpenChange={setCreateShipConfirmOpen}
+      >
+        <AlertDialogContent className='rounded-[6px]'>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tạo vận chuyển (forward label)</AlertDialogTitle>
+            <AlertDialogDescription>
+              {forwardIds.length} đơn đã có label sẵn sẽ được forward sang ShipDVX.
+              Đây là đơn đã mua label trên sàn (vd TikTok) nên không tính cước.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className='rounded-[6px]'>
+              {messages.profile.cancel}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className='rounded-[6px]'
+              onClick={(event) => {
+                event.preventDefault()
+                void runCreateShipping(forwardIds)
+              }}
+              disabled={buyingLabel || forwardIds.length === 0}
+            >
+              {buyingLabel ? ordersMessages.processing : 'Tạo vận chuyển'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
