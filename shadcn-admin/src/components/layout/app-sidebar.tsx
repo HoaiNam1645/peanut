@@ -43,7 +43,7 @@ export function AppSidebar() {
             <SidebarMenuButton size='lg' className='cursor-default select-none hover:bg-transparent active:bg-transparent'>
               <div className='aspect-square size-8 overflow-hidden rounded-lg'>
                 <img
-                  src='https://res.cloudinary.com/dntnoiwtc/image/upload/v1781844203/2026-06-19_11.41.04_ypok2f.jpg'
+                  src='https://res.cloudinary.com/dk9oqs34g/image/upload/v1782121289/2026-06-19_11.41.04_cgactp.jpg'
                   alt='THEUNIV'
                   className='size-full object-cover'
                 />

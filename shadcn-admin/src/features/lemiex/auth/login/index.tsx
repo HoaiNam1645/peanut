@@ -41,7 +41,7 @@ export function LemiexLogin({ redirectTo }: LemiexLoginProps) {
         <CardHeader className='space-y-5 text-center'>
           <div className='mx-auto h-20 w-20 overflow-hidden rounded-3xl border border-border shadow-sm'>
             <img
-              src='https://res.cloudinary.com/dntnoiwtc/image/upload/v1781844203/2026-06-19_11.41.04_ypok2f.jpg'
+              src='https://res.cloudinary.com/dk9oqs34g/image/upload/v1782121289/2026-06-19_11.41.04_cgactp.jpg'
               alt='THEUNIV'
               className='h-full w-full object-cover'
             />
