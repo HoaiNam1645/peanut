@@ -657,10 +657,21 @@ export function LemiexOrders() {
               </div>
               {previewResult.ineligible.length > 0 ? (
                 <div className='rounded-[6px] bg-amber-50 p-2 text-xs text-amber-700'>
-                  {previewResult.ineligible.length} đơn thiếu thông tin giao hàng sẽ bị bỏ qua:{' '}
-                  {previewResult.ineligible
-                    .map((i) => i.ref_id ?? `#${i.order_id}`)
-                    .join(', ')}
+                  <div className='font-medium'>
+                    {previewResult.ineligible.length} đơn sẽ bị bỏ qua:
+                  </div>
+                  <ul className='mt-1 list-disc space-y-0.5 pl-4'>
+                    {previewResult.ineligible.map((i) => (
+                      <li key={i.order_id}>
+                        <span className='font-mono'>
+                          {i.ref_id ?? `#${i.order_id}`}
+                        </span>
+                        {i.reasons?.length
+                          ? ` — ${i.reasons.join('; ')}`
+                          : null}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ) : null}
             </div>
