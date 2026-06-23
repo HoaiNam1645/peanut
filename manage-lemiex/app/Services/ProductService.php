@@ -461,7 +461,10 @@ class ProductService
             'prices_created' => 0,
         ];
 
-        $product = Product::where('name', $productData['product_info']['name'])
+        // Include soft-deleted so re-importing a previously deleted product restores
+        // it (and re-homes its variants) instead of creating a duplicate.
+        $product = Product::withTrashed()
+            ->where('name', $productData['product_info']['name'])
             ->where('style', $productData['product_info']['style'])
             ->where('brand', $productData['product_info']['brand'])
             ->first();
@@ -470,8 +473,13 @@ class ProductService
             $product = Product::create($productData['product_info']);
             $result['product_created'] = true;
         } else {
+            if ($product->trashed()) {
+                $product->restore();
+                $result['product_created'] = true;
+            } else {
+                $result['product_updated'] = true;
+            }
             $product->update($productData['product_info']);
-            $result['product_updated'] = true;
         }
 
         foreach ($productData['variants'] as $variantRow) {
@@ -490,7 +498,10 @@ class ProductService
     {
         $result = ['variant_created' => false, 'prices_created' => 0];
 
-        $variant = ProductVariant::where('variant_id', $row['variant_id'])->first();
+        // variant_id is globally unique; a soft-deleted variant (e.g. from a
+        // deleted product) still occupies the unique key. Look it up WITH trashed
+        // so we restore+update instead of INSERT (which would hit the unique index).
+        $variant = ProductVariant::withTrashed()->where('variant_id', $row['variant_id'])->first();
 
         $stockFromCsv = isset($row['stock']) && $row['stock'] !== '' ? (int)$row['stock'] : 0;
 
@@ -521,7 +532,14 @@ class ProductService
             $variant = ProductVariant::create($variantData);
             $result['variant_created'] = true;
         } else {
-            // For existing variants, keep current stock unchanged during CSV import.
+            if ($variant->trashed()) {
+                // Re-importing a previously soft-deleted variant: bring it back and
+                // treat it like a fresh variant (re-init stock from CSV).
+                $variant->restore();
+                $variantData['stock'] = $stockFromCsv;
+                $result['variant_created'] = true;
+            }
+            // For existing (already-active) variants, keep current stock unchanged.
             $variant->update($variantData);
         }
 
