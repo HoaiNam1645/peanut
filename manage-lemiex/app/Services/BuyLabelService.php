@@ -365,7 +365,9 @@ class BuyLabelService
             $variant = $item->productVariant;
             $items[] = [
                 'skuNumber' => $item->variant_id,
-                'name' => $item->product_name ?: ($item->variant_id ?: 'Item'),
+                // ShipDVX caps item name length — truncate to a short customs
+                // descriptor (full title is kept in `description` below).
+                'name' => mb_substr($item->product_name ?: ($item->variant_id ?: 'Item'), 0, ShipDvxConstants::MAX_ITEM_NAME_LEN),
                 'quantity' => (int) ($item->quantity ?: 1),
                 'description' => $item->product_name ?: '',
                 'weight' => (float) ($variant?->weight ?: ShipDvxConstants::DEFAULT_ITEM_WEIGHT_G),

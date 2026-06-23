@@ -74,6 +74,12 @@ class ShipDvxConstants
     const DEFAULT_ITEM_WIDTH_CM  = 15;
     const DEFAULT_ITEM_HEIGHT_CM = 2;
 
+    // ShipDVX rejects the whole orders array ("orders validation error") when an
+    // item `name` is too long (full marketing titles ~115 chars fail; ~100 is the
+    // fuzzy limit). Keep the name a short customs descriptor; the full title still
+    // goes in `description` (which has no such limit). Verified via preview-prices.
+    const MAX_ITEM_NAME_LEN = 60;
+
     // US state/territory full name (UPPERCASE) → 2-letter code. The provider requires
     // recipient.state to be exactly 2 chars for US, so we normalize full names here.
     const US_STATE_CODES = [
