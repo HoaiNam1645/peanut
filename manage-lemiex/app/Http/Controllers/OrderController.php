@@ -1203,6 +1203,7 @@ class OrderController extends Controller
                     'shipping_service',
                     'shipping_label',
                     'convert_label',
+                    'label_status',
                     'tracking_id',
                     'tracking_link',
                     'total_cost',
