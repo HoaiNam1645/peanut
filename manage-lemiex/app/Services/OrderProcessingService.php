@@ -58,7 +58,7 @@ class OrderProcessingService
      */
     public function createQRCodesBatchSimple(Order $order): void
     {
-        $serviceUrl = env('QR_SERVICE_URL_WOOD', 'https://manage.lemiex.us/pes-api/qr/generate-simple');
+        $serviceUrl = env('QR_SERVICE_URL_WOOD', 'https://manage.lemiex.us/pes-api/qr/generate-simple-size');
         $trackingBase = env('FRONTEND_TRACKING_URL', config('app.url'));
 
         $items = OrderItem::where('order_id', $order->id)->get();
@@ -157,10 +157,10 @@ class OrderProcessingService
         $log = [];
         try {
             // Use the SAME QR generator as the main order-creation flow
-            // (createQRCodesBatchSimple → /pes-api/qr/generate-simple) so remade QR
+            // (createQRCodesBatchSimple → /pes-api/qr/generate-simple-size) so remade QR
             // matches freshly-created QR. The old per-unit createSingleQR (/qr/generate)
             // produced a different ("old") format.
-            $serviceUrl = env('QR_SERVICE_URL_WOOD', 'https://manage.lemiex.us/pes-api/qr/generate-simple');
+            $serviceUrl = env('QR_SERVICE_URL_WOOD', 'https://manage.lemiex.us/pes-api/qr/generate-simple-size');
             $trackingBase = env('FRONTEND_TRACKING_URL', config('app.url'));
 
             $items = OrderItem::where('order_id', $order->id)->get();
