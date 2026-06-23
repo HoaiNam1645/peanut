@@ -48,6 +48,7 @@ export type OrderListItem = {
   total_cost?: number | null
   has_ticket?: boolean
   convert_label?: string | null
+  label_status?: string | null
   support_ticket?: { id?: number | string | null } | null
   shipping?: {
     tracking_id?: string | null

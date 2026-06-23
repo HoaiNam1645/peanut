@@ -1777,6 +1777,7 @@ class OrderController extends Controller
             'status' => $order->fulfill_status, // For compatibility
             'fulfill_status' => $order->fulfill_status,
             'payment_status' => $order->payment_status,
+            'label_status' => $order->label_status, // ShipDVX shipping-creation status (null = chưa tạo VC)
             'has_ticket' => ($order->tickets_count ?? 0) > 0,
             'support_ticket' => $order->tickets->isNotEmpty() ? [
                 'id' => $order->tickets->first()->id

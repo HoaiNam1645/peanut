@@ -33,6 +33,42 @@ function formatStatusLabel(
   return value.replaceAll('_', ' ')
 }
 
+// ShipDVX shipping-creation status shown next to Label/Convert so you can tell
+// at a glance which orders have already had shipping created (and its outcome).
+const SHIP_STATUS_STYLE: Record<string, { label: string; className: string }> = {
+  PENDING: { label: 'VC: chờ', className: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' },
+  GENERATED: { label: 'Đã tạo VC', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' },
+  SCANNED: { label: 'VC: đã quét', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' },
+  PROCESSING: { label: 'VC: đang xử lý', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' },
+  PROCESSED: { label: 'VC: đã xử lý', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' },
+  DELIVERED: { label: 'VC: đã giao', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' },
+  WARNING: { label: 'VC: cảnh báo', className: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' },
+  FAILED: { label: 'VC: lỗi', className: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' },
+  ORDER_FAILED: { label: 'VC: lỗi', className: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' },
+  ERROR: { label: 'VC: lỗi', className: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' },
+  CANCELLED: { label: 'VC: huỷ', className: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' },
+}
+
+function ShipStatusBadge({ status }: { status?: string | null }) {
+  const key = (status ?? '').toUpperCase()
+  if (!key) {
+    return (
+      <span className='inline-flex rounded-[4px] bg-zinc-100 px-2 py-1 text-[10px] font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'>
+        Chưa tạo VC
+      </span>
+    )
+  }
+  const style = SHIP_STATUS_STYLE[key] ?? {
+    label: `VC: ${key}`,
+    className: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300',
+  }
+  return (
+    <span className={`inline-flex rounded-[4px] px-2 py-1 text-[10px] font-semibold ${style.className}`}>
+      {style.label}
+    </span>
+  )
+}
+
 function formatDateTime(
   value: string | null | undefined,
   messages: ReturnType<typeof useI18n>['messages']['orders']
@@ -217,30 +253,29 @@ export function getOrdersTableColumns(
               <span className='text-[12px] text-muted-foreground'>{messages.status.noTracking}</span>
             )}
 
-            {(row.original.shipping?.label_url || row.original.convert_label) ? (
-              <div className='flex flex-wrap gap-1.5'>
-                {row.original.shipping?.label_url ? (
-                  <a
-                    href={row.original.shipping.label_url}
-                    target='_blank'
-                    rel='noreferrer'
-                    className='inline-flex rounded-[4px] bg-violet-50 px-2 py-1 text-[10px] font-semibold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300'
-                  >
-                    {messages.status.label}
-                  </a>
-                ) : null}
-                {row.original.convert_label ? (
-                  <a
-                    href={row.original.convert_label}
-                    target='_blank'
-                    rel='noreferrer'
-                    className='inline-flex rounded-[4px] bg-fuchsia-50 px-2 py-1 text-[10px] font-semibold text-fuchsia-700 dark:bg-fuchsia-950/40 dark:text-fuchsia-300'
-                  >
-                    {messages.status.convert}
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
+            <div className='flex flex-wrap items-center gap-1.5'>
+              {row.original.shipping?.label_url ? (
+                <a
+                  href={row.original.shipping.label_url}
+                  target='_blank'
+                  rel='noreferrer'
+                  className='inline-flex rounded-[4px] bg-violet-50 px-2 py-1 text-[10px] font-semibold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300'
+                >
+                  {messages.status.label}
+                </a>
+              ) : null}
+              {row.original.convert_label ? (
+                <a
+                  href={row.original.convert_label}
+                  target='_blank'
+                  rel='noreferrer'
+                  className='inline-flex rounded-[4px] bg-fuchsia-50 px-2 py-1 text-[10px] font-semibold text-fuchsia-700 dark:bg-fuchsia-950/40 dark:text-fuchsia-300'
+                >
+                  {messages.status.convert}
+                </a>
+              ) : null}
+              <ShipStatusBadge status={row.original.label_status} />
+            </div>
 
             <div className='text-[11px] text-muted-foreground'>
               {formatDateTime(
