@@ -170,12 +170,22 @@ export function LemiexShipDvxOrders() {
     async (p: number, size: number, filtering: boolean) => {
       setLoading(true)
       try {
-        // The provider list has no server-side search; when filtering we pull a
-        // larger batch (page 1) so the target order is included for client filtering.
-        const res = filtering
-          ? await fetchShipDvxOrders(1, 100)
-          : await fetchShipDvxOrders(p, size)
-        setResult(res)
+        if (filtering) {
+          // The provider list has no server-side search, so pull ALL pages and
+          // client-filter — the target order can be on any page (incl. the oldest).
+          const docs: ShipDvxOrder[] = []
+          let pg = 1
+          let totalPages = 1
+          do {
+            const r = await fetchShipDvxOrders(pg, 100)
+            docs.push(...(r.docs ?? []))
+            totalPages = r.totalPages ?? 1
+            pg++
+          } while (pg <= totalPages && pg <= 20)
+          setResult({ docs, totalDocs: docs.length })
+        } else {
+          setResult(await fetchShipDvxOrders(p, size))
+        }
       } catch {
         setResult({ docs: [] })
       } finally {
