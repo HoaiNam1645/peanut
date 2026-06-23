@@ -1,6 +1,8 @@
 'use client'
 
 import { type ColumnDef } from '@tanstack/react-table'
+import Link from 'next/link'
+import { ArrowUpRight } from 'lucide-react'
 import { useI18n } from '@/context/i18n-provider'
 import { Badge } from '@/components/ui/badge'
 import { OrderActionsCell } from '@/features/lemiex/orders/components/order-actions-cell'
@@ -49,7 +51,13 @@ const SHIP_STATUS_STYLE: Record<string, { label: string; className: string }> = 
   CANCELLED: { label: 'VC: huỷ', className: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' },
 }
 
-function ShipStatusBadge({ status }: { status?: string | null }) {
+function ShipStatusBadge({
+  status,
+  orderNumber,
+}: {
+  status?: string | null
+  orderNumber?: string | null
+}) {
   const key = (status ?? '').toUpperCase()
   if (!key) {
     return (
@@ -62,11 +70,22 @@ function ShipStatusBadge({ status }: { status?: string | null }) {
     label: `VC: ${key}`,
     className: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300',
   }
-  return (
-    <span className={`inline-flex rounded-[4px] px-2 py-1 text-[10px] font-semibold ${style.className}`}>
-      {style.label}
-    </span>
-  )
+  const base = `inline-flex items-center gap-0.5 rounded-[4px] px-2 py-1 text-[10px] font-semibold ${style.className}`
+  // Once shipping is created, link to the matching order on the ShipDVX page.
+  if (orderNumber) {
+    return (
+      <Link
+        href={`/lemiex/shipdvx-orders?q=${encodeURIComponent(orderNumber)}`}
+        onClick={(e) => e.stopPropagation()}
+        title='Xem đơn trên ShipDVX'
+        className={`${base} transition hover:ring-1 hover:ring-current/40`}
+      >
+        {style.label}
+        <ArrowUpRight className='size-3 opacity-70' />
+      </Link>
+    )
+  }
+  return <span className={base}>{style.label}</span>
 }
 
 function formatDateTime(
@@ -274,7 +293,10 @@ export function getOrdersTableColumns(
                   {messages.status.convert}
                 </a>
               ) : null}
-              <ShipStatusBadge status={row.original.label_status} />
+              <ShipStatusBadge
+                status={row.original.label_status}
+                orderNumber={row.original.ref_id}
+              />
             </div>
 
             <div className='text-[11px] text-muted-foreground'>

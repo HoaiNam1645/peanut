@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Eye, RefreshCw } from 'lucide-react'
 import {
@@ -134,11 +135,13 @@ const baseColumns: ColumnDef<ShipDvxOrder, unknown>[] = [
 ]
 
 export function LemiexShipDvxOrders() {
+  const searchParams = useSearchParams()
   const [result, setResult] = useState<ShipDvxOrdersResult>({ docs: [] })
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [selected, setSelected] = useState<ShipDvxOrder | null>(null)
+  const [search, setSearch] = useState(searchParams.get('q') ?? '')
 
   const columns = useMemo<ColumnDef<ShipDvxOrder, unknown>[]>(
     () => [
@@ -163,21 +166,37 @@ export function LemiexShipDvxOrders() {
     []
   )
 
-  const load = useCallback(async (p: number, size: number) => {
-    setLoading(true)
-    try {
-      const res = await fetchShipDvxOrders(p, size)
-      setResult(res)
-    } catch {
-      setResult({ docs: [] })
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (p: number, size: number, filtering: boolean) => {
+      setLoading(true)
+      try {
+        // The provider list has no server-side search; when filtering we pull a
+        // larger batch (page 1) so the target order is included for client filtering.
+        const res = filtering
+          ? await fetchShipDvxOrders(1, 100)
+          : await fetchShipDvxOrders(p, size)
+        setResult(res)
+      } catch {
+        setResult({ docs: [] })
+      } finally {
+        setLoading(false)
+      }
+    },
+    []
+  )
+
+  const isFiltering = search.trim().length > 0
 
   useEffect(() => {
-    void load(page, pageSize)
-  }, [page, pageSize, load])
+    void load(page, pageSize, isFiltering)
+  }, [page, pageSize, isFiltering, load])
+
+  const visibleDocs = useMemo(() => {
+    const docs = result.docs ?? []
+    const s = search.trim().toLowerCase()
+    if (!s) return docs
+    return docs.filter((d) => (d.orderNumber ?? '').toLowerCase().includes(s))
+  }, [result.docs, search])
 
   return (
     <>
@@ -196,35 +215,60 @@ export function LemiexShipDvxOrders() {
             <h2 className='text-2xl font-bold tracking-tight'>Đơn ShipDVX</h2>
             <p className='text-sm text-muted-foreground'>
               Đơn vận chuyển lấy trực tiếp từ ShipDVX
-              {typeof result.totalDocs === 'number'
-                ? ` — ${result.totalDocs.toLocaleString('en-US')} đơn`
-                : ''}
+              {isFiltering
+                ? ` — lọc "${search.trim()}": ${visibleDocs.length} kết quả`
+                : typeof result.totalDocs === 'number'
+                  ? ` — ${result.totalDocs.toLocaleString('en-US')} đơn`
+                  : ''}
             </p>
           </div>
 
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            className='rounded-[6px]'
-            onClick={() => void load(page, pageSize)}
-            disabled={loading}
-          >
-            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-            Tải lại
-          </Button>
+          <div className='flex items-center gap-2'>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder='Lọc theo orderNumber…'
+              className='h-9 w-56 rounded-[6px] border border-input bg-background px-3 text-sm shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring'
+            />
+            {isFiltering ? (
+              <Button
+                type='button'
+                variant='ghost'
+                size='sm'
+                className='rounded-[6px]'
+                onClick={() => setSearch('')}
+              >
+                Xoá lọc
+              </Button>
+            ) : null}
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              className='rounded-[6px]'
+              onClick={() => void load(page, pageSize, isFiltering)}
+              disabled={loading}
+            >
+              <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+              Tải lại
+            </Button>
+          </div>
         </div>
 
         <div className='max-w-[1520px]'>
           <LemiexDataTable
             columns={columns}
-            data={result.docs ?? []}
-            page={result.page ?? page}
-            pageSize={result.limit ?? pageSize}
-            total={result.totalDocs ?? 0}
+            data={visibleDocs}
+            page={isFiltering ? 1 : (result.page ?? page)}
+            pageSize={
+              isFiltering
+                ? Math.max(visibleDocs.length, 1)
+                : (result.limit ?? pageSize)
+            }
+            total={isFiltering ? visibleDocs.length : (result.totalDocs ?? 0)}
             loading={loading}
             loadingText='Đang tải…'
-            emptyText='Không có đơn nào'
+            emptyText={isFiltering ? 'Không tìm thấy đơn khớp' : 'Không có đơn nào'}
             getRowId={(row, i) =>
               String(row._id ?? row.id ?? row.orderNumber ?? i)
             }
