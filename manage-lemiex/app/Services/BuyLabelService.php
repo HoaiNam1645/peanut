@@ -292,12 +292,12 @@ class BuyLabelService
         ];
 
         if ($hasLabel) {
-            // Forward an existing label (e.g. TikTok-provided). Per ShipDVX's
-            // "Order has barcode" docs, the order keeps the real last-mile carrier
-            // (USPS / NON-US) as shippingPartner and just adds barcode + labelUrl.
-            // Sending the "TIKTOK" partner makes create-orders reject the whole
-            // orders array with a generic "orders validation error".
-            $payload['shippingPartner'] = $this->resolveShippingPartner($order);
+            // Forward an existing label. Per ShipDVX docs (docs-api 2.1/2.2), a US
+            // order that already has a TikTok-provided label uses the TIKTOK partner
+            // + barcode + labelUrl so ShipDVX FORWARDS it (no new label bought, no
+            // shipping charge). The earlier create-orders rejection was the long
+            // item name (see buildShipDvxItems truncation), not this partner.
+            $payload['shippingPartner'] = ShipDvxConstants::PARTNER_TIKTOK;
             $payload['barcode'] = $order->tracking_id;
             $payload['labelUrl'] = $order->shipping_label;
         } else {
