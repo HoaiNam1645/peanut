@@ -700,7 +700,7 @@ export function LemiexOrders() {
       </Main>
 
       <AlertDialog open={buyLabelConfirmOpen} onOpenChange={setBuyLabelConfirmOpen}>
-        <AlertDialogContent className='rounded-[6px]'>
+        <AlertDialogContent className='rounded-[6px] sm:max-w-2xl'>
           <AlertDialogHeader>
             <AlertDialogTitle>{ordersMessages.confirmBuyLabel}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -714,11 +714,7 @@ export function LemiexOrders() {
             </div>
           ) : previewResult ? (
             <div className='space-y-2 text-sm'>
-              <div className='text-[11px] text-muted-foreground'>
-                💡 Sửa ô <strong>Cân (g)</strong> nếu cân thực tế khác (vd nhiều áo
-                gộp không nặng gấp đôi) — cước tự tính lại.
-              </div>
-              <div className='max-h-56 overflow-y-auto rounded-[6px] border'>
+              <div className='max-h-56 overflow-x-auto overflow-y-auto rounded-[6px] border'>
                 <table className='w-full'>
                   <thead className='sticky top-0 bg-muted/40 text-xs uppercase text-muted-foreground'>
                     <tr>
@@ -730,7 +726,9 @@ export function LemiexOrders() {
                   <tbody>
                     {previewResult.items.map((it) => (
                       <tr key={it.order_id} className='border-t'>
-                        <td className='px-3 py-1.5'>{it.ref_id ?? `#${it.order_id}`}</td>
+                        <td className='whitespace-nowrap px-3 py-1.5'>
+                          {it.ref_id ?? `#${it.order_id}`}
+                        </td>
                         <td className='px-3 py-1.5 text-right'>
                           <input
                             type='number'
