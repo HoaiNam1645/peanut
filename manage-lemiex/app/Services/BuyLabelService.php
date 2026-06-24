@@ -294,14 +294,8 @@ class BuyLabelService
                 'postalCode' => $order->postcode ?? '',
                 'country' => $order->country ?? 'US',
             ],
-            'items' => $this->buildShipDvxItems($order),
+            'items' => $this->buildShipDvxItems($order, $weightOverride),
         ];
-
-        // Order-level weight override (user-edited total in the buy preview). ShipDVX
-        // uses this as the parcel weight instead of summing item weights (× quantity).
-        if ($weightOverride !== null && $weightOverride > 0) {
-            $payload['weight'] = round($weightOverride, 2);
-        }
 
         if ($hasLabel) {
             // Forward an existing label. Per ShipDVX docs (docs-api 2.1/2.2), a US
@@ -370,7 +364,7 @@ class BuyLabelService
      * Build items[] from order items. Weight in gram, dims in cm, value in USD.
      * Uses per-item (per-unit) values + quantity, per ShipDVX convention.
      */
-    private function buildShipDvxItems(Order $order): array
+    private function buildShipDvxItems(Order $order, ?float $totalWeightOverride = null): array
     {
         $items = [];
         foreach ($order->items as $item) {
@@ -407,6 +401,23 @@ class BuyLabelService
                 'value' => ShipDvxConstants::DEFAULT_ITEM_VALUE_USD,
                 'taxPercentage' => 0,
             ];
+        }
+
+        // Total-weight override (user-edited in the buy preview). ShipDVX prices by
+        // the SUM of item weights (× qty) — order-level weight/chargeableWeight are
+        // IGNORED — so scale each per-unit weight proportionally to hit the total.
+        if ($totalWeightOverride !== null && $totalWeightOverride > 0) {
+            $currentTotal = 0.0;
+            foreach ($items as $it) {
+                $currentTotal += ((float) $it['weight']) * ((int) $it['quantity']);
+            }
+            if ($currentTotal > 0) {
+                $scale = $totalWeightOverride / $currentTotal;
+                foreach ($items as &$it) {
+                    $it['weight'] = max(1.0, round(((float) $it['weight']) * $scale, 2));
+                }
+                unset($it);
+            }
         }
 
         return $items;
