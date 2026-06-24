@@ -235,6 +235,9 @@ export function LemiexOrders() {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewResult, setPreviewResult] = useState<ShipDvxPricePreview | null>(null)
   const [pendingBuyIds, setPendingBuyIds] = useState<Array<number | string>>([])
+  // User-edited total weight (g) per order, applied in the buy preview + checkout.
+  const [weightOverrides, setWeightOverrides] = useState<Record<string, number>>({})
+  const [repricing, setRepricing] = useState(false)
   const [storeRequiredOpen, setStoreRequiredOpen] = useState(false)
   const [typeDialogOpen, setTypeDialogOpen] = useState(false)
   const [createShipConfirmOpen, setCreateShipConfirmOpen] = useState(false)
@@ -437,6 +440,7 @@ export function LemiexOrders() {
     }
     setPendingBuyIds(ids)
     setPreviewResult(null)
+    setWeightOverrides({})
     setPreviewLoading(true)
     setBuyLabelConfirmOpen(true)
     try {
@@ -466,8 +470,8 @@ export function LemiexOrders() {
     try {
       const response =
         ids.length === 1
-          ? await buyLabelSingle(ids[0])
-          : await buyLabelBatch(ids)
+          ? await buyLabelSingle(ids[0], weightOverrides)
+          : await buyLabelBatch(ids, weightOverrides)
 
       // ShipDVX create-orders is async for both single and batch — no tracking number
       // is returned (it arrives later via webhook), so report the dispatch, not tracking.
@@ -483,6 +487,7 @@ export function LemiexOrders() {
       setSelectedOrderIds([])
       setPendingBuyIds([])
       setForwardIds([])
+      setWeightOverrides({})
       setRefreshKey((value) => value + 1)
     } catch (error) {
       toast.error(
@@ -492,6 +497,19 @@ export function LemiexOrders() {
       setBuyingLabel(false)
     }
   }
+
+  // Re-price (debounced) when the user edits a weight in the buy preview dialog.
+  useEffect(() => {
+    if (!buyLabelConfirmOpen || Object.keys(weightOverrides).length === 0) return
+    const timer = setTimeout(() => {
+      setRepricing(true)
+      void previewShippingPrices(pendingBuyIds, weightOverrides)
+        .then(setPreviewResult)
+        .catch(() => {})
+        .finally(() => setRepricing(false))
+    }, 700)
+    return () => clearTimeout(timer)
+  }, [weightOverrides, buyLabelConfirmOpen, pendingBuyIds])
 
   // "Mua label" → only orders WITHOUT a label, with a price preview first.
   const handleOpenBuyLabel = () => {
@@ -696,6 +714,10 @@ export function LemiexOrders() {
             </div>
           ) : previewResult ? (
             <div className='space-y-2 text-sm'>
+              <div className='text-[11px] text-muted-foreground'>
+                💡 Sửa ô <strong>Cân (g)</strong> nếu cân thực tế khác (vd nhiều áo
+                gộp không nặng gấp đôi) — cước tự tính lại.
+              </div>
               <div className='max-h-56 overflow-y-auto rounded-[6px] border'>
                 <table className='w-full'>
                   <thead className='sticky top-0 bg-muted/40 text-xs uppercase text-muted-foreground'>
@@ -710,7 +732,28 @@ export function LemiexOrders() {
                       <tr key={it.order_id} className='border-t'>
                         <td className='px-3 py-1.5'>{it.ref_id ?? `#${it.order_id}`}</td>
                         <td className='px-3 py-1.5 text-right'>
-                          {it.chargeable_weight ?? '—'}
+                          <input
+                            type='number'
+                            min={1}
+                            value={
+                              weightOverrides[String(it.order_id)] ??
+                              (it.chargeable_weight ?? '')
+                            }
+                            onChange={(e) => {
+                              const raw = e.target.value
+                              setWeightOverrides((prev) => {
+                                const next = { ...prev }
+                                const n = Math.round(Number(raw))
+                                if (!raw || !Number.isFinite(n) || n <= 0) {
+                                  delete next[String(it.order_id)]
+                                } else {
+                                  next[String(it.order_id)] = n
+                                }
+                                return next
+                              })
+                            }}
+                            className='h-7 w-20 rounded-[4px] border border-input bg-background px-2 text-right text-[12px] outline-none focus-visible:ring-1 focus-visible:ring-ring'
+                          />
                         </td>
                         <td className='px-3 py-1.5 text-right font-medium'>
                           {it.calculated_price != null
@@ -722,8 +765,15 @@ export function LemiexOrders() {
                   </tbody>
                 </table>
               </div>
-              <div className='flex justify-between font-semibold'>
-                <span>Tổng ({previewResult.count} đơn)</span>
+              <div className='flex items-center justify-between font-semibold'>
+                <span>
+                  Tổng ({previewResult.count} đơn)
+                  {repricing ? (
+                    <span className='ml-2 text-[11px] font-normal text-muted-foreground'>
+                      đang tính lại…
+                    </span>
+                  ) : null}
+                </span>
                 <span>${previewResult.total.toFixed(2)}</span>
               </div>
               {previewResult.ineligible.length > 0 ? (

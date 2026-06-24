@@ -30,7 +30,7 @@ class BuyLabelService
      * Async: returns a jobId; the actual label/tracking arrive via webhook.
      * Forwards existing TikTok labels (HAS_LABEL) — shippingPartner = TIKTOK.
      */
-    public function buyLabelViaShipDvx(array $orderIds, User $user): array
+    public function buyLabelViaShipDvx(array $orderIds, User $user, array $weightOverrides = []): array
     {
         try {
             $isAdmin = $user->role && strtolower($user->role->name) === 'admin';
@@ -76,7 +76,10 @@ class BuyLabelService
 
             $payloads = [];
             foreach ($valid as $order) {
-                $payloads[] = $this->buildShipDvxPayload($order);
+                $payloads[] = $this->buildShipDvxPayload(
+                    $order,
+                    isset($weightOverrides[$order->id]) ? (float) $weightOverrides[$order->id] : null
+                );
             }
 
             Log::info('ShipDVX create-orders request', [
@@ -137,7 +140,7 @@ class BuyLabelService
      * Returns per-order price + a total, plus any orders that can't be priced
      * (missing address).
      */
-    public function previewShipDvxPrices(array $orderIds, User $user): array
+    public function previewShipDvxPrices(array $orderIds, User $user, array $weightOverrides = []): array
     {
         try {
             $isAdmin = $user->role && strtolower($user->role->name) === 'admin';
@@ -189,7 +192,10 @@ class BuyLabelService
                     BuyLabelConstants::FIELD_ORDER_ID => $order->id,
                     BuyLabelConstants::FIELD_REF_ID => $order->ref_id,
                 ];
-                $payloads[] = $this->buildShipDvxPayload($order);
+                $payloads[] = $this->buildShipDvxPayload(
+                    $order,
+                    isset($weightOverrides[$order->id]) ? (float) $weightOverrides[$order->id] : null
+                );
             }
 
             $items = [];
@@ -268,7 +274,7 @@ class BuyLabelService
      * NOTE: `barcode` / `labelUrl` key names are best-guess (HAS_LABEL/TikTok) —
      * confirm exact JSON keys with ShipDVX, then adjust here.
      */
-    private function buildShipDvxPayload(Order $order): array
+    private function buildShipDvxPayload(Order $order, ?float $weightOverride = null): array
     {
         $name = trim(($order->first_name ?? '') . ' ' . ($order->last_name ?? ''));
 
@@ -290,6 +296,12 @@ class BuyLabelService
             ],
             'items' => $this->buildShipDvxItems($order),
         ];
+
+        // Order-level weight override (user-edited total in the buy preview). ShipDVX
+        // uses this as the parcel weight instead of summing item weights (× quantity).
+        if ($weightOverride !== null && $weightOverride > 0) {
+            $payload['weight'] = round($weightOverride, 2);
+        }
 
         if ($hasLabel) {
             // Forward an existing label. Per ShipDVX docs (docs-api 2.1/2.2), a US

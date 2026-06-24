@@ -824,7 +824,10 @@ type BuyLabelResponse = {
   } | null
 }
 
-export async function buyLabelSingle(orderId: number | string) {
+export async function buyLabelSingle(
+  orderId: number | string,
+  weights?: Record<string, number>
+) {
   const payload = await request<BuyLabelResponse>(API_ENDPOINTS.BUY_LABEL_SINGLE, {
     method: 'POST',
     headers: {
@@ -832,6 +835,7 @@ export async function buyLabelSingle(orderId: number | string) {
     },
     body: JSON.stringify({
       order_id: orderId,
+      ...(weights && Object.keys(weights).length ? { weights } : {}),
     }),
   })
 
@@ -842,7 +846,10 @@ export async function buyLabelSingle(orderId: number | string) {
   return payload
 }
 
-export async function buyLabelBatch(orderIds: Array<number | string>) {
+export async function buyLabelBatch(
+  orderIds: Array<number | string>,
+  weights?: Record<string, number>
+) {
   const payload = await request<BuyLabelResponse>(API_ENDPOINTS.BUY_LABEL_BATCH, {
     method: 'POST',
     headers: {
@@ -850,6 +857,7 @@ export async function buyLabelBatch(orderIds: Array<number | string>) {
     },
     body: JSON.stringify({
       order_ids: orderIds,
+      ...(weights && Object.keys(weights).length ? { weights } : {}),
     }),
   })
 
@@ -1083,14 +1091,18 @@ export type ShipDvxPricePreview = {
 }
 
 export async function previewShippingPrices(
-  orderIds: Array<number | string>
+  orderIds: Array<number | string>,
+  weights?: Record<string, number>
 ): Promise<ShipDvxPricePreview> {
   const payload = await request<{ data?: ShipDvxPricePreview }>(
     '/buy-label/preview-prices',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order_ids: orderIds }),
+      body: JSON.stringify({
+        order_ids: orderIds,
+        ...(weights && Object.keys(weights).length ? { weights } : {}),
+      }),
     }
   )
   return payload.data ?? { items: [], total: 0, count: 0, ineligible: [] }
