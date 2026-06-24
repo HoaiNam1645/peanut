@@ -369,7 +369,8 @@ class BuyLabelService
                 // descriptor (full title is kept in `description` below).
                 'name' => mb_substr($item->product_name ?: ($item->variant_id ?: 'Item'), 0, ShipDvxConstants::MAX_ITEM_NAME_LEN),
                 'quantity' => (int) ($item->quantity ?: 1),
-                'description' => $item->product_name ?: '',
+                // ShipDVX caps itemDescription at 50 chars (ORDER_FAILED otherwise).
+                'description' => mb_substr($item->product_name ?: '', 0, ShipDvxConstants::MAX_ITEM_DESC_LEN),
                 'weight' => (float) ($variant?->weight ?: ShipDvxConstants::DEFAULT_ITEM_WEIGHT_G),
                 'length' => (float) ($variant?->length ?: ShipDvxConstants::DEFAULT_ITEM_LENGTH_CM),
                 'width' => (float) ($variant?->width ?: ShipDvxConstants::DEFAULT_ITEM_WIDTH_CM),

@@ -74,11 +74,14 @@ class ShipDvxConstants
     const DEFAULT_ITEM_WIDTH_CM  = 15;
     const DEFAULT_ITEM_HEIGHT_CM = 2;
 
-    // ShipDVX rejects the whole orders array ("orders validation error") when an
-    // item `name` is too long (full marketing titles ~115 chars fail; ~100 is the
-    // fuzzy limit). Keep the name a short customs descriptor; the full title still
-    // goes in `description` (which has no such limit). Verified via preview-prices.
+    // ShipDVX item text limits. preview-prices is lenient, but create-orders
+    // enforces them (longer → generic "orders validation error" on the sync call,
+    // or an ORDER_FAILED webhook on the async job):
+    //   - name: long marketing titles (~115) fail; keep a short customs descriptor.
+    //   - description (itemDescription): hard max 50 chars (ORDER_FAILED:
+    //     "itemDescription must NOT have more than 50 characters") for buy orders.
     const MAX_ITEM_NAME_LEN = 60;
+    const MAX_ITEM_DESC_LEN = 50;
 
     // US state/territory full name (UPPERCASE) → 2-letter code. The provider requires
     // recipient.state to be exactly 2 chars for US, so we normalize full names here.
