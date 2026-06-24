@@ -1,6 +1,6 @@
 'use client'
 
-import { type ComponentType, useEffect, useMemo, useState } from 'react'
+import { type ComponentType, Fragment, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Tags, Truck } from 'lucide-react'
 import { toast } from 'sonner'
@@ -235,8 +235,8 @@ export function LemiexOrders() {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewResult, setPreviewResult] = useState<ShipDvxPricePreview | null>(null)
   const [pendingBuyIds, setPendingBuyIds] = useState<Array<number | string>>([])
-  // User-edited total weight (g) per order, applied in the buy preview + checkout.
-  const [weightOverrides, setWeightOverrides] = useState<Record<string, number>>({})
+  // User-edited weight (g) per ITEM (keyed by item_id), applied in the buy preview + checkout.
+  const [itemWeights, setItemWeights] = useState<Record<string, number>>({})
   const [repricing, setRepricing] = useState(false)
   const [storeRequiredOpen, setStoreRequiredOpen] = useState(false)
   const [typeDialogOpen, setTypeDialogOpen] = useState(false)
@@ -440,7 +440,7 @@ export function LemiexOrders() {
     }
     setPendingBuyIds(ids)
     setPreviewResult(null)
-    setWeightOverrides({})
+    setItemWeights({})
     setPreviewLoading(true)
     setBuyLabelConfirmOpen(true)
     try {
@@ -470,8 +470,8 @@ export function LemiexOrders() {
     try {
       const response =
         ids.length === 1
-          ? await buyLabelSingle(ids[0], weightOverrides)
-          : await buyLabelBatch(ids, weightOverrides)
+          ? await buyLabelSingle(ids[0], itemWeights)
+          : await buyLabelBatch(ids, itemWeights)
 
       // ShipDVX create-orders is async for both single and batch — no tracking number
       // is returned (it arrives later via webhook), so report the dispatch, not tracking.
@@ -487,7 +487,7 @@ export function LemiexOrders() {
       setSelectedOrderIds([])
       setPendingBuyIds([])
       setForwardIds([])
-      setWeightOverrides({})
+      setItemWeights({})
       setRefreshKey((value) => value + 1)
     } catch (error) {
       toast.error(
@@ -500,16 +500,16 @@ export function LemiexOrders() {
 
   // Re-price (debounced) when the user edits a weight in the buy preview dialog.
   useEffect(() => {
-    if (!buyLabelConfirmOpen || Object.keys(weightOverrides).length === 0) return
+    if (!buyLabelConfirmOpen || Object.keys(itemWeights).length === 0) return
     const timer = setTimeout(() => {
       setRepricing(true)
-      void previewShippingPrices(pendingBuyIds, weightOverrides)
+      void previewShippingPrices(pendingBuyIds, itemWeights)
         .then(setPreviewResult)
         .catch(() => {})
         .finally(() => setRepricing(false))
     }, 700)
     return () => clearTimeout(timer)
-  }, [weightOverrides, buyLabelConfirmOpen, pendingBuyIds])
+  }, [itemWeights, buyLabelConfirmOpen, pendingBuyIds])
 
   // "Mua label" → only orders WITHOUT a label, with a price preview first.
   const handleOpenBuyLabel = () => {
@@ -718,47 +718,70 @@ export function LemiexOrders() {
                 <table className='w-full'>
                   <thead className='sticky top-0 bg-muted/40 text-xs uppercase text-muted-foreground'>
                     <tr>
-                      <th className='px-3 py-1.5 text-left'>Đơn</th>
+                      <th className='px-3 py-1.5 text-left'>Đơn / SP</th>
                       <th className='px-3 py-1.5 text-right'>Cân (g)</th>
                       <th className='px-3 py-1.5 text-right'>Cước</th>
                     </tr>
                   </thead>
                   <tbody>
                     {previewResult.items.map((it) => (
-                      <tr key={it.order_id} className='border-t'>
-                        <td className='whitespace-nowrap px-3 py-1.5'>
-                          {it.ref_id ?? `#${it.order_id}`}
-                        </td>
-                        <td className='px-3 py-1.5 text-right'>
-                          <input
-                            type='number'
-                            min={1}
-                            value={
-                              weightOverrides[String(it.order_id)] ??
-                              (it.chargeable_weight ?? '')
-                            }
-                            onChange={(e) => {
-                              const raw = e.target.value
-                              setWeightOverrides((prev) => {
-                                const next = { ...prev }
-                                const n = Math.round(Number(raw))
-                                if (!raw || !Number.isFinite(n) || n <= 0) {
-                                  delete next[String(it.order_id)]
-                                } else {
-                                  next[String(it.order_id)] = n
+                      <Fragment key={it.order_id}>
+                        {/* Order header: ref + total price */}
+                        <tr className='border-t bg-muted/30'>
+                          <td
+                            className='whitespace-nowrap px-3 py-1.5 font-medium'
+                            colSpan={2}
+                          >
+                            {it.ref_id ?? `#${it.order_id}`}
+                          </td>
+                          <td className='px-3 py-1.5 text-right font-semibold'>
+                            {it.calculated_price != null
+                              ? `$${it.calculated_price.toFixed(2)}`
+                              : '—'}
+                          </td>
+                        </tr>
+                        {/* One row per item — editable weight */}
+                        {(it.line_items ?? []).map((li) => (
+                          <tr key={li.item_id} className='border-t'>
+                            <td className='px-3 py-1 pl-6'>
+                              <span
+                                className='block max-w-[320px] truncate text-[12px] text-muted-foreground'
+                                title={li.name ?? ''}
+                              >
+                                {li.name || `#${li.item_id}`}
+                                {li.quantity && li.quantity > 1
+                                  ? ` ×${li.quantity}`
+                                  : ''}
+                              </span>
+                            </td>
+                            <td className='px-3 py-1 text-right'>
+                              <input
+                                type='number'
+                                min={1}
+                                value={
+                                  itemWeights[String(li.item_id)] ??
+                                  (li.weight ?? '')
                                 }
-                                return next
-                              })
-                            }}
-                            className='h-7 w-20 rounded-[4px] border border-input bg-background px-2 text-right text-[12px] outline-none focus-visible:ring-1 focus-visible:ring-ring'
-                          />
-                        </td>
-                        <td className='px-3 py-1.5 text-right font-medium'>
-                          {it.calculated_price != null
-                            ? `$${it.calculated_price.toFixed(2)}`
-                            : '—'}
-                        </td>
-                      </tr>
+                                onChange={(e) => {
+                                  const raw = e.target.value
+                                  setItemWeights((prev) => {
+                                    const next = { ...prev }
+                                    const n = Math.round(Number(raw))
+                                    if (!raw || !Number.isFinite(n) || n <= 0) {
+                                      delete next[String(li.item_id)]
+                                    } else {
+                                      next[String(li.item_id)] = n
+                                    }
+                                    return next
+                                  })
+                                }}
+                                className='h-7 w-20 rounded-[4px] border border-input bg-background px-2 text-right text-[12px] outline-none focus-visible:ring-1 focus-visible:ring-ring'
+                              />
+                            </td>
+                            <td />
+                          </tr>
+                        ))}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>

@@ -42,9 +42,9 @@ class BuyLabelController extends Controller
 
         $orderId = $request->input(BuyLabelConstants::FIELD_ORDER_ID);
         $user = Auth::user();
-        $weights = (array) $request->input('weights', []); // map order_id => weight (g)
+        $itemWeights = (array) $request->input('item_weights', []); // map item_id => weight (g)
         // Create shipping order via ShipDVX (async; label/tracking via webhook)
-        $result = $this->buyLabelService->buyLabelViaShipDvx([$orderId], $user, $weights);
+        $result = $this->buyLabelService->buyLabelViaShipDvx([$orderId], $user, $itemWeights);
 
         return response()->json($result, $result['code']);
     }
@@ -71,10 +71,10 @@ class BuyLabelController extends Controller
 
         $orderIds = $request->input('order_ids');
         $user = Auth::user();
-        $weights = (array) $request->input('weights', []); // map order_id => weight (g)
+        $itemWeights = (array) $request->input('item_weights', []); // map item_id => weight (g)
 
         // Create shipping orders via ShipDVX (batch native; async)
-        $result = $this->buyLabelService->buyLabelViaShipDvx($orderIds, $user, $weights);
+        $result = $this->buyLabelService->buyLabelViaShipDvx($orderIds, $user, $itemWeights);
 
         return response()->json($result, $result['code']);
     }
@@ -130,7 +130,7 @@ class BuyLabelController extends Controller
         $result = $this->buyLabelService->previewShipDvxPrices(
             $request->input('order_ids'),
             Auth::user(),
-            (array) $request->input('weights', []) // map order_id => weight (g)
+            (array) $request->input('item_weights', []) // map item_id => weight (g)
         );
 
         return response()->json($result, $result['code']);

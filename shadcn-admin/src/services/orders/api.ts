@@ -826,7 +826,7 @@ type BuyLabelResponse = {
 
 export async function buyLabelSingle(
   orderId: number | string,
-  weights?: Record<string, number>
+  itemWeights?: Record<string, number>
 ) {
   const payload = await request<BuyLabelResponse>(API_ENDPOINTS.BUY_LABEL_SINGLE, {
     method: 'POST',
@@ -835,7 +835,9 @@ export async function buyLabelSingle(
     },
     body: JSON.stringify({
       order_id: orderId,
-      ...(weights && Object.keys(weights).length ? { weights } : {}),
+      ...(itemWeights && Object.keys(itemWeights).length
+        ? { item_weights: itemWeights }
+        : {}),
     }),
   })
 
@@ -848,7 +850,7 @@ export async function buyLabelSingle(
 
 export async function buyLabelBatch(
   orderIds: Array<number | string>,
-  weights?: Record<string, number>
+  itemWeights?: Record<string, number>
 ) {
   const payload = await request<BuyLabelResponse>(API_ENDPOINTS.BUY_LABEL_BATCH, {
     method: 'POST',
@@ -857,7 +859,9 @@ export async function buyLabelBatch(
     },
     body: JSON.stringify({
       order_ids: orderIds,
-      ...(weights && Object.keys(weights).length ? { weights } : {}),
+      ...(itemWeights && Object.keys(itemWeights).length
+        ? { item_weights: itemWeights }
+        : {}),
     }),
   })
 
@@ -1081,6 +1085,12 @@ export type ShipDvxPriceItem = {
   chargeable_weight?: number | null
   shipping_partner?: string | null
   is_zone9?: boolean | null
+  line_items?: Array<{
+    item_id: number
+    name?: string | null
+    quantity?: number
+    weight?: number
+  }>
 }
 
 export type ShipDvxPricePreview = {
@@ -1092,7 +1102,7 @@ export type ShipDvxPricePreview = {
 
 export async function previewShippingPrices(
   orderIds: Array<number | string>,
-  weights?: Record<string, number>
+  itemWeights?: Record<string, number>
 ): Promise<ShipDvxPricePreview> {
   const payload = await request<{ data?: ShipDvxPricePreview }>(
     '/buy-label/preview-prices',
@@ -1101,7 +1111,9 @@ export async function previewShippingPrices(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         order_ids: orderIds,
-        ...(weights && Object.keys(weights).length ? { weights } : {}),
+        ...(itemWeights && Object.keys(itemWeights).length
+        ? { item_weights: itemWeights }
+        : {}),
       }),
     }
   )

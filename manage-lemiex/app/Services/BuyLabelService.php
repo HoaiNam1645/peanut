@@ -30,7 +30,7 @@ class BuyLabelService
      * Async: returns a jobId; the actual label/tracking arrive via webhook.
      * Forwards existing TikTok labels (HAS_LABEL) — shippingPartner = TIKTOK.
      */
-    public function buyLabelViaShipDvx(array $orderIds, User $user, array $weightOverrides = []): array
+    public function buyLabelViaShipDvx(array $orderIds, User $user, array $itemWeightOverrides = []): array
     {
         try {
             $isAdmin = $user->role && strtolower($user->role->name) === 'admin';
@@ -76,10 +76,7 @@ class BuyLabelService
 
             $payloads = [];
             foreach ($valid as $order) {
-                $payloads[] = $this->buildShipDvxPayload(
-                    $order,
-                    isset($weightOverrides[$order->id]) ? (float) $weightOverrides[$order->id] : null
-                );
+                $payloads[] = $this->buildShipDvxPayload($order, $itemWeightOverrides);
             }
 
             Log::info('ShipDVX create-orders request', [
@@ -140,7 +137,7 @@ class BuyLabelService
      * Returns per-order price + a total, plus any orders that can't be priced
      * (missing address).
      */
-    public function previewShipDvxPrices(array $orderIds, User $user, array $weightOverrides = []): array
+    public function previewShipDvxPrices(array $orderIds, User $user, array $itemWeightOverrides = []): array
     {
         try {
             $isAdmin = $user->role && strtolower($user->role->name) === 'admin';
@@ -191,11 +188,20 @@ class BuyLabelService
                 $indexMap[count($payloads)] = [
                     BuyLabelConstants::FIELD_ORDER_ID => $order->id,
                     BuyLabelConstants::FIELD_REF_ID => $order->ref_id,
+                    // Per-item breakdown so the buy preview can show + edit each item's weight.
+                    'line_items' => $order->items->map(function ($it) use ($itemWeightOverrides) {
+                        $variant = $it->productVariant;
+                        return [
+                            'item_id' => $it->id,
+                            'name' => $it->product_name,
+                            'quantity' => (int) ($it->quantity ?: 1),
+                            'weight' => isset($itemWeightOverrides[$it->id])
+                                ? (float) $itemWeightOverrides[$it->id]
+                                : (float) ($variant?->weight ?: ShipDvxConstants::DEFAULT_ITEM_WEIGHT_G),
+                        ];
+                    })->values()->all(),
                 ];
-                $payloads[] = $this->buildShipDvxPayload(
-                    $order,
-                    isset($weightOverrides[$order->id]) ? (float) $weightOverrides[$order->id] : null
-                );
+                $payloads[] = $this->buildShipDvxPayload($order, $itemWeightOverrides);
             }
 
             $items = [];
@@ -274,7 +280,7 @@ class BuyLabelService
      * NOTE: `barcode` / `labelUrl` key names are best-guess (HAS_LABEL/TikTok) —
      * confirm exact JSON keys with ShipDVX, then adjust here.
      */
-    private function buildShipDvxPayload(Order $order, ?float $weightOverride = null): array
+    private function buildShipDvxPayload(Order $order, array $itemWeightOverrides = []): array
     {
         $name = trim(($order->first_name ?? '') . ' ' . ($order->last_name ?? ''));
 
@@ -294,7 +300,7 @@ class BuyLabelService
                 'postalCode' => $order->postcode ?? '',
                 'country' => $order->country ?? 'US',
             ],
-            'items' => $this->buildShipDvxItems($order, $weightOverride),
+            'items' => $this->buildShipDvxItems($order, $itemWeightOverrides),
         ];
 
         if ($hasLabel) {
@@ -364,11 +370,16 @@ class BuyLabelService
      * Build items[] from order items. Weight in gram, dims in cm, value in USD.
      * Uses per-item (per-unit) values + quantity, per ShipDVX convention.
      */
-    private function buildShipDvxItems(Order $order, ?float $totalWeightOverride = null): array
+    private function buildShipDvxItems(Order $order, array $itemWeightOverrides = []): array
     {
         $items = [];
         foreach ($order->items as $item) {
             $variant = $item->productVariant;
+            // Per-item weight override (user-edited in the buy preview), else the
+            // variant weight (or default). ShipDVX prices by the sum of item weights.
+            $weight = isset($itemWeightOverrides[$item->id])
+                ? max(1.0, (float) $itemWeightOverrides[$item->id])
+                : (float) ($variant?->weight ?: ShipDvxConstants::DEFAULT_ITEM_WEIGHT_G);
             $items[] = [
                 'skuNumber' => $item->variant_id,
                 // ShipDVX caps item name length — truncate to a short customs
@@ -377,7 +388,7 @@ class BuyLabelService
                 'quantity' => (int) ($item->quantity ?: 1),
                 // ShipDVX caps itemDescription at 50 chars (ORDER_FAILED otherwise).
                 'description' => mb_substr($item->product_name ?: '', 0, ShipDvxConstants::MAX_ITEM_DESC_LEN),
-                'weight' => (float) ($variant?->weight ?: ShipDvxConstants::DEFAULT_ITEM_WEIGHT_G),
+                'weight' => $weight,
                 'length' => (float) ($variant?->length ?: ShipDvxConstants::DEFAULT_ITEM_LENGTH_CM),
                 'width' => (float) ($variant?->width ?: ShipDvxConstants::DEFAULT_ITEM_WIDTH_CM),
                 'height' => (float) ($variant?->height ?: ShipDvxConstants::DEFAULT_ITEM_HEIGHT_CM),
@@ -401,23 +412,6 @@ class BuyLabelService
                 'value' => ShipDvxConstants::DEFAULT_ITEM_VALUE_USD,
                 'taxPercentage' => 0,
             ];
-        }
-
-        // Total-weight override (user-edited in the buy preview). ShipDVX prices by
-        // the SUM of item weights (× qty) — order-level weight/chargeableWeight are
-        // IGNORED — so scale each per-unit weight proportionally to hit the total.
-        if ($totalWeightOverride !== null && $totalWeightOverride > 0) {
-            $currentTotal = 0.0;
-            foreach ($items as $it) {
-                $currentTotal += ((float) $it['weight']) * ((int) $it['quantity']);
-            }
-            if ($currentTotal > 0) {
-                $scale = $totalWeightOverride / $currentTotal;
-                foreach ($items as &$it) {
-                    $it['weight'] = max(1.0, round(((float) $it['weight']) * $scale, 2));
-                }
-                unset($it);
-            }
         }
 
         return $items;
