@@ -81,6 +81,7 @@ function parseSearchParams(searchParams: URLSearchParams): LemiexOrdersPageState
       fulfill_status: parseArrayParam(searchParams.get('fulfill_status')),
       payment_status: parseArrayParam(searchParams.get('payment_status')),
       exclude_status: parseArrayParam(searchParams.get('exclude_status')),
+      label_status: parseArrayParam(searchParams.get('label_status')),
       date_from: searchParams.get('date_from') || '',
       date_to: searchParams.get('date_to') || '',
       shipped_date_from: searchParams.get('shipped_date_from') || '',

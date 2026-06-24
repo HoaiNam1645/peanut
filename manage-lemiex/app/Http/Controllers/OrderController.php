@@ -1609,6 +1609,24 @@ class OrderController extends Controller
             $query->whereIn('payment_status', $statuses);
         }
 
+        // Filter by label_status (ShipDVX shipping-creation status). The special
+        // value 'NONE' matches orders not yet forwarded (label_status IS NULL).
+        if ($request->filled('label_status')) {
+            $values = is_array($request->input('label_status'))
+                ? $request->input('label_status')
+                : explode(',', $request->input('label_status'));
+            $hasNone = in_array('NONE', $values, true);
+            $real = array_values(array_filter($values, fn($v) => $v !== 'NONE' && $v !== ''));
+            $query->where(function ($q) use ($real, $hasNone) {
+                if (!empty($real)) {
+                    $q->whereIn('label_status', $real);
+                }
+                if ($hasNone) {
+                    $q->orWhereNull('label_status');
+                }
+            });
+        }
+
         // Filter by processing_status
         if ($request->filled('processing_status')) {
             $query->where('processing_status', $request->input('processing_status'));

@@ -54,6 +54,14 @@ const SELLER_VISIBLE_FULFILL_STATUSES = [
   'closed',
 ]
 
+const LABEL_STATUS_OPTIONS: SelectOption[] = [
+  { value: 'GENERATED', label: 'Đã tạo VC' },
+  { value: 'PENDING', label: 'VC: chờ' },
+  { value: 'ERROR', label: 'VC: lỗi' },
+  { value: 'CANCELLED', label: 'VC: đã huỷ' },
+  { value: 'NONE', label: 'Chưa tạo VC' },
+]
+
 function hasAdvancedActiveFilters(filters: LemiexOrdersFilters) {
   return Boolean(
     filters.style ||
@@ -68,6 +76,7 @@ function hasAdvancedActiveFilters(filters: LemiexOrdersFilters) {
       filters.missing_shipping_info ||
       filters.fulfill_status.length > 0 ||
       filters.payment_status.length > 0 ||
+      filters.label_status.length > 0 ||
       filters.exclude_status.length > 0 ||
       filters.sort_by !== 'created_at' ||
       filters.sort_order !== 'asc'
@@ -215,6 +224,7 @@ export function OrdersFilters({
         draft.missing_shipping_info ? '1' : '',
         draft.fulfill_status.join(','),
         draft.payment_status.join(','),
+        draft.label_status.join(','),
         draft.exclude_status.join(','),
       ].filter(Boolean).length,
     [draft]
@@ -429,6 +439,13 @@ export function OrdersFilters({
               options={paymentStatusOptions}
               value={draft.payment_status}
               onChange={(value) => setDraft((prev) => ({ ...prev, payment_status: value }))}
+            />
+
+            <FilterChipGroup
+              title='Trạng thái vận chuyển (ShipDVX)'
+              options={LABEL_STATUS_OPTIONS}
+              value={draft.label_status}
+              onChange={(value) => setDraft((prev) => ({ ...prev, label_status: value }))}
             />
 
             <div className='space-y-5 border-t pt-8'>

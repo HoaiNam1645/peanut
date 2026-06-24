@@ -13,6 +13,7 @@ export const DEFAULT_ORDERS_FILTERS: LemiexOrdersFilters = {
   fulfill_status: [],
   payment_status: [],
   exclude_status: [],
+  label_status: [],
   date_from: '',
   date_to: '',
   shipped_date_from: '',

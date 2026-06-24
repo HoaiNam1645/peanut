@@ -13,6 +13,7 @@ export type LemiexOrdersFilters = {
   fulfill_status: string[]
   payment_status: string[]
   exclude_status: string[]
+  label_status: string[]
   date_from: string
   date_to: string
   shipped_date_from: string
