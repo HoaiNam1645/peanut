@@ -52,7 +52,11 @@ class DownloadBuyLabelPdf implements ShouldQueue
             throw new Exception("Empty label PDF for provider order {$this->providerOrderId}");
         }
 
-        $filename = 'buy_label/' . ($order->ref_id ?: 'order-' . $order->id) . '-' . $this->providerOrderId . '.pdf';
+        // Sanitize the key: ref_id contains '[' ']' which break the B2/S3 object
+        // URL (unencoded brackets → "InvalidRequest" in the browser/B2). Use a
+        // URL-safe name (matches the TikTok label naming, e.g. K-Seller_49_-Store_3000_).
+        $safeRef = preg_replace('/[^A-Za-z0-9_-]/', '_', $order->ref_id ?: 'order-' . $order->id);
+        $filename = 'buy_label/' . $safeRef . '-' . $this->providerOrderId . '.pdf';
         Storage::disk('b2')->put($filename, $pdf, 'public');
         $labelUrl = Storage::disk('b2')->url($filename);
 
