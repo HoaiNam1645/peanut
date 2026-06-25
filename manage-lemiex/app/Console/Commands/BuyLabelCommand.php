@@ -157,6 +157,7 @@ class BuyLabelCommand extends Command
             ->whereNotNull('tracking_id')->where('tracking_id', '!=', '')
             ->whereNotNull('shipping_label')->where('shipping_label', '!=', '')
             ->where(fn ($q) => $q->whereNull('label_status')->orWhere('label_status', ''))
+            ->where('ref_id', 'not like', 'TEST%') // skip test orders (ref TEST-*)
             ->orderBy('id')
             ->limit($limit)
             ->pluck('id')
@@ -192,6 +193,7 @@ class BuyLabelCommand extends Command
             ->where(fn ($q) => $q->whereNull('orders.tracking_id')->orWhere('orders.tracking_id', ''))
             ->where('orders.address_1', '!=', '')
             ->where(fn ($q) => $q->whereNull('orders.label_status')->orWhere('orders.label_status', ''))
+            ->where('orders.ref_id', 'not like', 'TEST%') // skip test orders (ref TEST-*)
             ->whereBetween('orders.created_at', [
                 Carbon::now()->subDays($maxAgeDays),
                 Carbon::now()->subMinutes($minAge),
