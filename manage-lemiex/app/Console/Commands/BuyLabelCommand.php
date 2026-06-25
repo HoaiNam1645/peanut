@@ -2,10 +2,11 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\OrderFulfillStatus;
+use App\Enums\OrderFulfillStatus as F;
 use App\Enums\OrderPaymentStatus;
-use App\Jobs\BuyLabelShipEngine;
 use App\Models\Order;
+use App\Models\User;
+use App\Services\BuyLabelService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -18,127 +19,186 @@ class BuyLabelCommand extends Command
      * @var string
      */
     protected $signature = 'app:buy-label
-                            {--limit=100 : Maximum number of orders to process}
-                            {--delay=10 : Delay in seconds between jobs}
-                            {--sync : Run jobs synchronously (for debugging)}';
+                            {--limit=50 : Max orders to process per branch per run}
+                            {--mode=all : Which branch to run: all | buy | forward}
+                            {--min-age=60 : (buy only) minimum order age in minutes before auto-buy}
+                            {--max-age-days=7 : (buy only) ignore orders older than this many days}
+                            {--dry-run : List eligible orders without sending anything to ShipDVX}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Auto buy shipping labels for eligible orders via ShipEngine';
+    protected $description = 'Auto create-shipping via ShipDVX (luồng như mua thuần): FORWARD shipped HAS_LABEL orders (tạo vận chuyển, miễn phí) + BUY labels for eligible NO_LABEL orders (mua label, tốn tiền).';
 
     /**
      * Execute the console command.
      */
-    public function handle(): int
+    public function handle(BuyLabelService $buyLabelService): int
     {
-        $limit = (int) $this->option('limit');
-        $delay = (int) $this->option('delay');
-        $sync = (bool) $this->option('sync');
+        $limit = max(1, (int) $this->option('limit'));
+        $mode = strtolower((string) $this->option('mode'));
+        $minAge = max(0, (int) $this->option('min-age'));
+        $maxAgeDays = max(1, (int) $this->option('max-age-days'));
+        $dry = (bool) $this->option('dry-run');
 
-        $this->info("Starting Buy Label Cron Job");
-        $this->info("Limit: {$limit}, Delay: {$delay}s, Sync: " . ($sync ? 'Yes' : 'No'));
-
-        Log::info("=== Start Buy Label Cron ===", [
-            'limit' => $limit,
-            'delay' => $delay,
-            'timestamp' => now()->toDateTimeString(),
-        ]);
-
-        try {
-            // Query orders that need labels
-            $orders = Order::select('orders.id', 'orders.seller_id', 'orders.ref_id', 'orders.created_at')
-                ->join('users', 'users.id', '=', 'orders.seller_id')
-                ->join('user_profiles', 'user_profiles.user_id', '=', 'users.id')
-                ->where('user_profiles.production', 1) // Seller has production permission
-                ->where('orders.payment_status', OrderPaymentStatus::PAID) // Paid orders
-                ->whereNotIn('orders.fulfill_status', [
-                    OrderFulfillStatus::ON_HOLD,
-                    OrderFulfillStatus::SHIPPED,
-                    OrderFulfillStatus::RETURN_TO_SUPPORT,
-                    OrderFulfillStatus::CANCELLED,
-                    OrderFulfillStatus::CLOSED,
-                ])
-                ->where(function ($q) {
-                    $q->whereNull('orders.shipping_label')
-                        ->orWhere('orders.shipping_label', '');
-                })
-                ->where(function ($q) {
-                    $q->whereNull('orders.tracking_id')
-                        ->orWhere('orders.tracking_id', '');
-                })
-                ->where('orders.address_1', '!=', '') // Has shipping address
-                ->where('orders.created_at', '>=', Carbon::now()->subDays(7)) // Not older than 7 days
-                ->where('orders.created_at', '<=', Carbon::now()->subHours(1)) // At least 1 hour old
-                ->orderBy('orders.id', 'ASC')
-                ->limit($limit)
-                ->get();
-
-            $count = $orders->count();
-
-            if ($count === 0) {
-                $this->info("No orders found that need labels");
-                Log::info("No eligible orders found");
-                return self::SUCCESS;
-            }
-
-            $this->info("Found {$count} orders to process");
-            Log::info("Found eligible orders", [
-                'count' => $count,
-                'order_ids' => $orders->pluck('id')->toArray(),
-            ]);
-
-            // Dispatch jobs for each order
-            $dispatched = 0;
-            foreach ($orders as $order) {
-                try {
-                    if ($sync) {
-                        $this->info("Processing Order #{$order->id} (Sync)...");
-                        BuyLabelShipEngine::dispatchSync($order->id, $order->seller_id);
-                        $this->info("Processed Order #{$order->id} successfully.");
-                    } else {
-                        BuyLabelShipEngine::dispatch($order->id, $order->seller_id)
-                            ->delay(now()->addSeconds($delay * $dispatched));
-
-                        $this->info("Dispatched job for Order #{$order->id} (Ref: {$order->ref_id})");
-                    }
-
-                    Log::info("Job " . ($sync ? "processed" : "dispatched"), [
-                        'order_id' => $order->id,
-                        'ref_id' => $order->ref_id,
-                        'seller_id' => $order->seller_id,
-                        'delay_seconds' => $sync ? 0 : ($delay * $dispatched),
-                    ]);
-
-                    $dispatched++;
-                } catch (\Exception $e) {
-                    $this->error("Failed to dispatch job for Order #{$order->id}: {$e->getMessage()}");
-
-                    Log::error("Failed to dispatch job", [
-                        'order_id' => $order->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-            }
-
-            $this->info("Successfully dispatched {$dispatched} jobs");
-            Log::info("=== Buy Label Cron Completed ===", [
-                'total_found' => $count,
-                'total_dispatched' => $dispatched,
-            ]);
-
-            return self::SUCCESS;
-        } catch (\Exception $e) {
-            $this->error("Cron job failed: {$e->getMessage()}");
-
-            Log::error("Cron job exception", [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
+        if (! in_array($mode, ['all', 'buy', 'forward'], true)) {
+            $this->error("Invalid --mode={$mode} (use all|buy|forward)");
 
             return self::FAILURE;
         }
+
+        $this->info('=== Auto Buy-Label / Create-Shipping (ShipDVX) ===');
+        $this->line("mode={$mode} limit={$limit} min-age={$minAge}m max-age={$maxAgeDays}d dry-run=".($dry ? 'yes' : 'no'));
+
+        // Run as an admin user so BuyLabelService doesn't scope to a single seller.
+        $admin = User::whereHas('role', fn ($q) => $q->whereRaw('LOWER(name) = ?', ['admin']))->first();
+        if (! $admin) {
+            $this->error('No admin user found — cannot run auto buy-label.');
+            Log::error('Auto buy-label: no admin user found');
+
+            return self::FAILURE;
+        }
+
+        // Build the two disjoint candidate sets.
+        $candidates = [];
+        if ($mode === 'all' || $mode === 'forward') {
+            foreach ($this->forwardCandidates($limit) as $id) {
+                $candidates[] = ['id' => $id, 'type' => 'forward'];
+            }
+        }
+        if ($mode === 'all' || $mode === 'buy') {
+            foreach ($this->buyCandidates($limit, $minAge, $maxAgeDays) as $id) {
+                $candidates[] = ['id' => $id, 'type' => 'buy'];
+            }
+        }
+
+        $forwardCount = count(array_filter($candidates, fn ($c) => $c['type'] === 'forward'));
+        $buyCount = count($candidates) - $forwardCount;
+        $this->info("Eligible — forward (tạo VC, shipped): {$forwardCount} | buy (mua label, tốn tiền): {$buyCount}");
+
+        if (empty($candidates)) {
+            $this->info('No eligible orders.');
+            Log::info('Auto buy-label: no eligible orders', ['mode' => $mode]);
+
+            return self::SUCCESS;
+        }
+
+        if ($dry) {
+            foreach ($candidates as $c) {
+                $order = Order::find($c['id']);
+                $this->line(sprintf('  [%s] #%d  ref=%s  fulfill=%s', $c['type'], $c['id'], $order?->ref_id ?? '?', $order?->fulfill_status ?? '?'));
+            }
+            $this->info('Dry-run: '.count($candidates).' order(s) would be processed (nothing sent).');
+
+            return self::SUCCESS;
+        }
+
+        // Process per-order — identical to a manual single "Mua label / Tạo vận chuyển"
+        // click. Per-order (not batch) so one bad order can't fail the others, and a
+        // failure leaves label_status NULL so it's retried next run (no double charge:
+        // success flips label_status to PENDING, excluding it from later runs).
+        $ok = 0;
+        $fail = 0;
+        foreach ($candidates as $c) {
+            try {
+                $res = $buyLabelService->buyLabelViaShipDvx([$c['id']], $admin);
+                if (($res['status'] ?? false) === true) {
+                    $ok++;
+                    $this->info("  ✓ [{$c['type']}] #{$c['id']}");
+                } else {
+                    $fail++;
+                    $this->warn("  ✗ [{$c['type']}] #{$c['id']}: ".($res['message'] ?? 'unknown'));
+                    Log::warning('Auto buy-label: order not dispatched', [
+                        'order_id' => $c['id'],
+                        'type' => $c['type'],
+                        'message' => $res['message'] ?? null,
+                        'ineligible' => $res['data']['ineligible'] ?? null,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                $fail++;
+                $this->error("  ✗ [{$c['type']}] #{$c['id']}: ".$e->getMessage());
+                Log::error('Auto buy-label: order errored', [
+                    'order_id' => $c['id'],
+                    'type' => $c['type'],
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            // Gentle pacing — ShipDVX rate-limits rapid calls.
+            usleep(400000);
+        }
+
+        $this->info("Done. ok={$ok} fail={$fail}");
+        Log::info('Auto buy-label run complete', [
+            'mode' => $mode,
+            'forward' => $forwardCount,
+            'buy' => $buyCount,
+            'ok' => $ok,
+            'fail' => $fail,
+        ]);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * FORWARD set — orders that already carry a label + tracking (TikTok/HAS_LABEL)
+     * and are SHIPPED. ShipDVX forwards the existing label (no charge). Only shipped
+     * orders, per the requirement. label_status NULL = not yet sent (avoids re-sending
+     * PENDING/GENERATED/ERROR → no ORDER_NUMBER_ALREADY_EXISTS).
+     *
+     * @return int[]
+     */
+    private function forwardCandidates(int $limit): array
+    {
+        return Order::query()
+            ->where('fulfill_status', F::SHIPPED)
+            ->whereNotNull('tracking_id')->where('tracking_id', '!=', '')
+            ->whereNotNull('shipping_label')->where('shipping_label', '!=', '')
+            ->where(fn ($q) => $q->whereNull('label_status')->orWhere('label_status', ''))
+            ->orderBy('id')
+            ->limit($limit)
+            ->pluck('id')
+            ->all();
+    }
+
+    /**
+     * BUY set — eligible NO_LABEL orders (seller-ship) that need a real label bought
+     * (costs money). Mirrors the long-standing eligibility: seller has production,
+     * order is PAID, not in a terminal/hold/shipped state, no existing label/tracking,
+     * has an address, aged into the [min-age, max-age] window, and never sent
+     * (label_status NULL).
+     *
+     * @return int[]
+     */
+    private function buyCandidates(int $limit, int $minAge, int $maxAgeDays): array
+    {
+        return Order::query()
+            ->join('users', 'users.id', '=', 'orders.seller_id')
+            ->join('user_profiles', 'user_profiles.user_id', '=', 'users.id')
+            ->where('user_profiles.production', 1)
+            ->where('orders.payment_status', OrderPaymentStatus::PAID)
+            ->whereNotIn('orders.fulfill_status', [
+                F::ON_HOLD,
+                F::SHIPPED,
+                F::RETURN_TO_SUPPORT,
+                F::CANCELLED,
+                F::CANCELLED_REFUND_SHIPPING,
+                F::CLOSED,
+                F::TEST_ORDER,
+            ])
+            ->where(fn ($q) => $q->whereNull('orders.shipping_label')->orWhere('orders.shipping_label', ''))
+            ->where(fn ($q) => $q->whereNull('orders.tracking_id')->orWhere('orders.tracking_id', ''))
+            ->where('orders.address_1', '!=', '')
+            ->where(fn ($q) => $q->whereNull('orders.label_status')->orWhere('orders.label_status', ''))
+            ->whereBetween('orders.created_at', [
+                Carbon::now()->subDays($maxAgeDays),
+                Carbon::now()->subMinutes($minAge),
+            ])
+            ->orderBy('orders.id')
+            ->limit($limit)
+            ->pluck('orders.id')
+            ->all();
     }
 }
