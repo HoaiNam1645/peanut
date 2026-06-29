@@ -6,6 +6,7 @@ use App\Http\Controllers\BuyLabelController;
 use App\Http\Controllers\BuyLabelWebhookController;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\MetadataController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderFulfillStatusController;
 use App\Http\Controllers\OrderItemController;
@@ -14,15 +15,12 @@ use App\Http\Controllers\PartnerStoreController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\StockAuditLogController;
 use App\Http\Controllers\StockController;
-use App\Http\Controllers\StockDashboardController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\TelegramController;
 use App\Http\Controllers\TierController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\MetadataController;
-use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/user', [Controller::class, 'index'])->name('user');
@@ -31,7 +29,7 @@ Route::get('/user', [Controller::class, 'index'])->name('user');
 Route::post('/broadcasting/auth', function (\Illuminate\Http\Request $request) {
     $user = $request->user('jwt');
 
-    if (!$user) {
+    if (! $user) {
         return response()->json(['error' => 'Unauthenticated'], 401);
     }
 
@@ -170,6 +168,12 @@ Route::get('/products-simple', [ProductController::class, 'getProductsSimple']);
 Route::get('/all-variants', [ProductController::class, 'getAllVariantsSimple']);
 Route::get('/embroidery-types', [TierController::class, 'getEmbroideryTypes']);
 
+// Public catalog (no auth) — powers the standalone storefront. These reuse the
+// existing catalog query methods, which do NOT scope by user/seller.
+Route::get('/catalog/products', [ProductController::class, 'getProductsWithVariants']);
+Route::get('/catalog/products/{id}', [ProductController::class, 'getProductDetail'])->where('id', '[0-9]+');
+Route::get('/catalog/filter-options', [ProductController::class, 'getFilterOptions']);
+
 // Print Product APIs (for Tumbler, etc.)
 Route::get('/print/styles', [ProductController::class, 'getPrintStyles']);
 Route::get('/print/colors', [ProductController::class, 'getPrintColors']);
@@ -244,7 +248,6 @@ Route::group(['prefix' => 'stock/shortage', 'middleware' => ['jwt.auth', 'permis
     Route::get('/export', [\App\Http\Controllers\ShortageReportController::class, 'export']);
     Route::get('/orders/{orderId}', [\App\Http\Controllers\ShortageReportController::class, 'getShortageVariants']);
 });
-
 
 // Reports API
 Route::group(['prefix' => 'reports', 'middleware' => 'jwt.auth'], function () {
