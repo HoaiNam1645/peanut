@@ -375,7 +375,11 @@ function RankingTable({
   rankLabel: string
   nameLabel: string
   metricLabel: string
-  rows: Array<{ name: string; value: string }>
+  rows: Array<{
+    name: string
+    value: string
+    sizes?: Array<{ size?: string | null; quantity?: number | null }> | null
+  }>
   emptyText: string
 }) {
   return (
@@ -413,7 +417,7 @@ function RankingTable({
               {rows.map((row, index) => (
                 <div
                   key={`${row.name}-${index}`}
-                  className='grid grid-cols-[60px_1fr_120px] items-center gap-3 py-2.5'
+                  className='grid grid-cols-[60px_1fr_120px] items-start gap-3 py-2.5'
                 >
                   <span
                     className={cn(
@@ -429,9 +433,23 @@ function RankingTable({
                   >
                     #{index + 1}
                   </span>
-                  <span className='truncate text-[13px] font-medium text-foreground'>
-                    {row.name}
-                  </span>
+                  <div className='min-w-0'>
+                    <span className='block truncate text-[13px] font-medium text-foreground'>
+                      {row.name}
+                    </span>
+                    {row.sizes && row.sizes.length > 0 ? (
+                      <div className='mt-1 flex flex-wrap gap-1'>
+                        {row.sizes.map((s, i) => (
+                          <span
+                            key={`${s.size}-${i}`}
+                            className='rounded-[4px] bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground'
+                          >
+                            {s.size}: {formatNumber(s.quantity ?? 0)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                   <span className='text-right text-[13px] font-semibold tabular-nums text-foreground'>
                     {row.value}
                   </span>
@@ -888,6 +906,7 @@ export function LemiexDashboard() {
                 rows={topProducts.slice(0, 10).map((product) => ({
                   name: product.product_name || m.empty,
                   value: `${formatNumber(product.total_quantity)} ${m.units}`,
+                  sizes: product.sizes ?? undefined,
                 }))}
                 emptyText={m.noTopProducts}
               />

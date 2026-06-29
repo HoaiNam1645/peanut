@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Constants\HttpCode;
 use App\Models\Order;
-use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Transaction;
@@ -64,11 +63,11 @@ class DashboardController extends Controller
                 $orderQuery->where('seller_id', $user->id);
             }
 
-            $orderStats = $orderQuery->selectRaw("
+            $orderStats = $orderQuery->selectRaw('
                 COUNT(*) as total_orders,
                 SUM(CASE WHEN created_at >= ? AND created_at < ? THEN 1 ELSE 0 END) as orders_this_period,
                 SUM(CASE WHEN created_at >= ? AND created_at < ? THEN 1 ELSE 0 END) as orders_previous_period
-            ", [$startDate, $endDate, $previousStartDate, $previousEndDate])->first();
+            ', [$startDate, $endDate, $previousStartDate, $previousEndDate])->first();
 
             $ordersThisPeriod = $orderStats->orders_this_period;
             $ordersPreviousPeriod = $orderStats->orders_previous_period;
@@ -86,11 +85,11 @@ class DashboardController extends Controller
                 $revenueQuery->where('orders.seller_id', $user->id);
             }
 
-            $revenueStats = $revenueQuery->selectRaw("
+            $revenueStats = $revenueQuery->selectRaw('
                     SUM(order_items.quantity * order_items.price) as total_revenue,
                     SUM(CASE WHEN orders.created_at >= ? AND orders.created_at < ? THEN order_items.quantity * order_items.price ELSE 0 END) as revenue_this_period,
                     SUM(CASE WHEN orders.created_at >= ? AND orders.created_at < ? THEN order_items.quantity * order_items.price ELSE 0 END) as revenue_previous_period
-                ", [$startDate, $endDate, $previousStartDate, $previousEndDate])
+                ', [$startDate, $endDate, $previousStartDate, $previousEndDate])
                 ->first();
 
             $revenueThisPeriod = $revenueStats->revenue_this_period ?? 0;
@@ -109,12 +108,12 @@ class DashboardController extends Controller
             // Variants Statistics - Filtered by time range
             $variantStats = ProductVariant::where('created_at', '>=', $startDate)
                 ->where('created_at', '<', $endDate)
-                ->selectRaw("
+                ->selectRaw('
                 COUNT(*) as total_variants,
                 SUM(CASE WHEN active = 1 THEN 1 ELSE 0 END) as active_variants,
                 SUM(stock) as total_stock,
                 SUM(CASE WHEN stock > 0 AND stock <= 10 THEN 1 ELSE 0 END) as low_stock_variants
-            ")->first();
+            ')->first();
 
             $totalVariants = $variantStats->total_variants ?? 0;
             $activeVariants = $variantStats->active_variants;
@@ -126,9 +125,9 @@ class DashboardController extends Controller
                 $totalUsers = 0;
                 $newUsersThisPeriod = 0;
             } else {
-                $userStats = User::selectRaw("
+                $userStats = User::selectRaw('
                     SUM(CASE WHEN created_at >= ? AND created_at < ? THEN 1 ELSE 0 END) as new_users_this_period
-                ", [$startDate, $endDate])->first();
+                ', [$startDate, $endDate])->first();
                 $newUsersThisPeriod = $userStats->new_users_this_period ?? 0;
                 $totalUsers = $newUsersThisPeriod; // User wants big number to reflect selected time range
             }
@@ -178,25 +177,54 @@ class DashboardController extends Controller
                     ];
                 });
 
-            // Top Products (by order quantity) - Use actual product name from products table
-            $topProductsQuery = DB::table('order_items')
+            // Top Products (by order quantity) WITH a per-size breakdown.
+            // Group by (product name, variant size) so each ranked product carries a
+            // `sizes` list (e.g. S: 12, M: 40, L: 30); aggregate + rank in PHP.
+            $sizeExpr = "COALESCE(NULLIF(product_variants.size, ''), '—')";
+            $topProductRowsQuery = DB::table('order_items')
                 ->join('orders', 'order_items.order_id', '=', 'orders.id')
                 ->leftJoin('product_variants', 'order_items.variant_id', '=', 'product_variants.variant_id')
                 ->leftJoin('products', 'product_variants.product_id', '=', 'products.id')
                 ->select(
                     DB::raw('COALESCE(products.name, order_items.product_name) as product_name'),
+                    DB::raw("{$sizeExpr} as size"),
                     DB::raw('SUM(order_items.quantity) as total_quantity')
                 )
                 ->where('orders.created_at', '>=', $startDate)
                 ->where('orders.created_at', '<', $endDate);
             if ($isSeller) {
-                $topProductsQuery->where('orders.seller_id', $user->id);
+                $topProductRowsQuery->where('orders.seller_id', $user->id);
             }
-            $topProducts = $topProductsQuery
-                ->groupBy(DB::raw('COALESCE(products.name, order_items.product_name)'))
-                ->orderBy('total_quantity', 'desc')
-                ->limit(5)
+            $topProductRows = $topProductRowsQuery
+                ->groupBy(DB::raw('COALESCE(products.name, order_items.product_name)'), DB::raw($sizeExpr))
                 ->get();
+
+            // Canonical size order so the breakdown reads S, M, L, XL, … (unknown last).
+            $sizeOrder = ['XXS' => 0, 'XS' => 1, 'S' => 2, 'M' => 3, 'L' => 4, 'XL' => 5, 'XXL' => 6, '2XL' => 6, '3XL' => 7, '4XL' => 8, '5XL' => 9, '6XL' => 10, '7XL' => 11];
+            $grouped = [];
+            foreach ($topProductRows as $row) {
+                $name = $row->product_name;
+                if (! isset($grouped[$name])) {
+                    $grouped[$name] = ['product_name' => $name, 'total_quantity' => 0, 'sizes' => []];
+                }
+                $grouped[$name]['total_quantity'] += (int) $row->total_quantity;
+                $grouped[$name]['sizes'][] = ['size' => $row->size, 'quantity' => (int) $row->total_quantity];
+            }
+            $topProducts = collect($grouped)
+                ->map(function ($product) use ($sizeOrder) {
+                    usort($product['sizes'], function ($a, $b) use ($sizeOrder) {
+                        $oa = $sizeOrder[strtoupper($a['size'])] ?? 99;
+                        $ob = $sizeOrder[strtoupper($b['size'])] ?? 99;
+
+                        return $oa <=> $ob ?: strcmp((string) $a['size'], (string) $b['size']);
+                    });
+
+                    return $product;
+                })
+                ->sortByDesc('total_quantity')
+                ->take(10)
+                ->values()
+                ->all();
 
             // Get top 5 products by total quantity (respecting time range) - Use actual product name
 
@@ -244,10 +272,10 @@ class DashboardController extends Controller
             $productSalesChart = [];
             foreach ($productSalesData as $item) {
                 $date = $item->date;
-                if (!isset($productSalesChart[$date])) {
+                if (! isset($productSalesChart[$date])) {
                     $productSalesChart[$date] = ['date' => $date];
                 }
-                $productSalesChart[$date][$item->product_name] = (int)$item->quantity;
+                $productSalesChart[$date][$item->product_name] = (int) $item->quantity;
             }
             $productSalesChart = array_values($productSalesChart);
 
@@ -273,10 +301,10 @@ class DashboardController extends Controller
             $revenueChart = [];
             foreach ($revenueData as $item) {
                 $date = $item->date;
-                if (!isset($revenueChart[$date])) {
+                if (! isset($revenueChart[$date])) {
                     $revenueChart[$date] = ['date' => $date];
                 }
-                $revenueChart[$date][$item->payment_status] = round((float)$item->revenue, 2);
+                $revenueChart[$date][$item->payment_status] = round((float) $item->revenue, 2);
             }
             $revenueChart = array_values($revenueChart);
 
@@ -327,11 +355,11 @@ class DashboardController extends Controller
             $transactionChart = [];
             foreach ($transactionData as $item) {
                 $date = $item->date;
-                if (!isset($transactionChart[$date])) {
+                if (! isset($transactionChart[$date])) {
                     $transactionChart[$date] = ['date' => $date];
                 }
                 $type = $item->type ?? 'other';
-                $transactionChart[$date][$type] = round((float)$item->total_amount, 2);
+                $transactionChart[$date][$type] = round((float) $item->total_amount, 2);
             }
             $transactionChart = array_values($transactionChart);
 
@@ -388,6 +416,7 @@ class DashboardController extends Controller
                 ->map(function ($row) {
                     $total = (int) $row->total;
                     $refund = (int) $row->refund;
+
                     return [
                         'shop_id' => $row->shop_id,
                         'shop_name' => $row->shop_name,
@@ -437,15 +466,15 @@ class DashboardController extends Controller
                     'top_product_names' => $topProductNames,
                     'shop_stats' => $shopStats,
                     'time_range' => $timeRange,
-                    'is_seller' => $isSeller // Flag for frontend
-                ]
+                    'is_seller' => $isSeller, // Flag for frontend
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'code' => HttpCode::SERVER_ERROR,
                 'status' => false,
                 'message' => 'Failed to retrieve dashboard statistics',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], HttpCode::SERVER_ERROR);
         }
     }

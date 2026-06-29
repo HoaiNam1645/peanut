@@ -39,6 +39,7 @@ type DashboardRecentOrder = {
 type DashboardTopProduct = {
   product_name?: string | null
   total_quantity?: number | null
+  sizes?: Array<{ size?: string | null; quantity?: number | null }> | null
 }
 
 type DashboardChartPoint = {
