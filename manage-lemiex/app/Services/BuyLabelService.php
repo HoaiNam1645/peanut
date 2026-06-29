@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Constants\BuyLabelConstants;
 use App\Constants\HttpCode;
 use App\Constants\ShipDvxConstants;
-use App\Enums\OrderFulfillStatus;
 use App\Jobs\BuyLabelShipEngine;
 use App\Models\Order;
 use App\Models\Timeline;
@@ -17,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 class BuyLabelService
 {
     private ShippoService $shippoService;
+
     private ShipDvxService $shipDvxService;
 
     public function __construct(ShippoService $shippoService, ShipDvxService $shipDvxService)
@@ -36,7 +36,7 @@ class BuyLabelService
             $isAdmin = $user->role && strtolower($user->role->name) === 'admin';
 
             $query = Order::with(['items.productVariant'])->whereIn('id', $orderIds);
-            if (!$isAdmin) {
+            if (! $isAdmin) {
                 $query->where('seller_id', $user->id);
             }
             $orders = $query->get();
@@ -100,7 +100,7 @@ class BuyLabelService
 
             $jobId = $result['jobId'] ?? null;
             foreach ($valid as $order) {
-                $order->provider_order_number = $order->ref_id;
+                $order->provider_order_number = $this->resolveOrderNumber($order);
                 $order->provider_job_id = $jobId;
                 $order->label_status = ShipDvxConstants::STATUS_PENDING;
                 $order->save();
@@ -127,7 +127,7 @@ class BuyLabelService
             return [
                 'code' => HttpCode::SERVER_ERROR,
                 'status' => false,
-                'message' => BuyLabelConstants::LABEL_CREATION_FAILED . ': ' . $e->getMessage(),
+                'message' => BuyLabelConstants::LABEL_CREATION_FAILED.': '.$e->getMessage(),
             ];
         }
     }
@@ -143,7 +143,7 @@ class BuyLabelService
             $isAdmin = $user->role && strtolower($user->role->name) === 'admin';
 
             $query = Order::with(['items.productVariant'])->whereIn('id', $orderIds);
-            if (!$isAdmin) {
+            if (! $isAdmin) {
                 $query->where('seller_id', $user->id);
             }
             $orders = $query->get()->values();
@@ -167,22 +167,24 @@ class BuyLabelService
                 // TIKTOK + barcode + labelUrl), which ShipDVX preview-prices
                 // rejects ("orders validation error"), failing the whole batch.
                 // Report them as ineligible instead of sending them.
-                if (!empty($order->tracking_id) && !empty($order->shipping_label)) {
+                if (! empty($order->tracking_id) && ! empty($order->shipping_label)) {
                     $invalid[] = [
                         BuyLabelConstants::FIELD_ORDER_ID => $order->id,
                         BuyLabelConstants::FIELD_REF_ID => $order->ref_id,
                         BuyLabelConstants::FIELD_REASONS => ['Đơn đã có label sẵn — không cần preview giá'],
                     ];
+
                     continue;
                 }
 
                 $reasons = $this->validateShipDvxOrder($order);
-                if (!empty($reasons)) {
+                if (! empty($reasons)) {
                     $invalid[] = [
                         BuyLabelConstants::FIELD_ORDER_ID => $order->id,
                         BuyLabelConstants::FIELD_REF_ID => $order->ref_id,
                         BuyLabelConstants::FIELD_REASONS => $reasons,
                     ];
+
                     continue;
                 }
                 $indexMap[count($payloads)] = [
@@ -191,6 +193,7 @@ class BuyLabelService
                     // Per-item breakdown so the buy preview can show + edit each item's weight.
                     'line_items' => $order->items->map(function ($it) use ($itemWeightOverrides) {
                         $variant = $it->productVariant;
+
                         return [
                             'item_id' => $it->id,
                             'name' => $it->product_name,
@@ -206,7 +209,7 @@ class BuyLabelService
 
             $items = [];
             $total = 0.0;
-            if (!empty($payloads)) {
+            if (! empty($payloads)) {
                 $prices = $this->shipDvxService->previewPrices($payloads);
                 foreach ($prices as $p) {
                     $idx = $p['index'] ?? null;
@@ -245,7 +248,7 @@ class BuyLabelService
             return [
                 'code' => HttpCode::SERVER_ERROR,
                 'status' => false,
-                'message' => 'Không tính được giá: ' . $e->getMessage(),
+                'message' => 'Không tính được giá: '.$e->getMessage(),
             ];
         }
     }
@@ -272,6 +275,7 @@ class BuyLabelService
         if (empty($order->country)) {
             $reasons[] = 'Thiếu quốc gia';
         }
+
         return $reasons;
     }
 
@@ -280,16 +284,38 @@ class BuyLabelService
      * NOTE: `barcode` / `labelUrl` key names are best-guess (HAS_LABEL/TikTok) —
      * confirm exact JSON keys with ShipDVX, then adjust here.
      */
+    /**
+     * ShipDVX caps orderNumber at 36 chars ("orderNumber must NOT have more than 36
+     * characters"). Our ref_id (e.g. "K-Seller[355]-Store[669]-577449939354030271" =
+     * 43 chars) can exceed it → fall back to the trailing platform order id
+     * ("577449939354030271"). The SAME value is stored as provider_order_number so the
+     * webhook still maps the callback back to this order.
+     */
+    private function resolveOrderNumber(Order $order): string
+    {
+        $ref = (string) $order->ref_id;
+        if (mb_strlen($ref) <= ShipDvxConstants::MAX_ORDER_NUMBER_LEN) {
+            return $ref;
+        }
+        $parts = explode('-', $ref);
+        $tail = trim((string) end($parts));
+        if ($tail !== '' && mb_strlen($tail) <= ShipDvxConstants::MAX_ORDER_NUMBER_LEN) {
+            return $tail;
+        }
+
+        return mb_substr($ref, -ShipDvxConstants::MAX_ORDER_NUMBER_LEN);
+    }
+
     private function buildShipDvxPayload(Order $order, array $itemWeightOverrides = []): array
     {
-        $name = trim(($order->first_name ?? '') . ' ' . ($order->last_name ?? ''));
+        $name = trim(($order->first_name ?? '').' '.($order->last_name ?? ''));
 
         // HAS_LABEL = order already carries a label + tracking (TikTok) → forward it.
         // Otherwise NO_LABEL (Etsy/seller-ship) → ShipDVX buys/generates the label.
-        $hasLabel = !empty($order->tracking_id) && !empty($order->shipping_label);
+        $hasLabel = ! empty($order->tracking_id) && ! empty($order->shipping_label);
 
         $payload = [
-            'orderNumber' => $order->ref_id,
+            'orderNumber' => $this->resolveOrderNumber($order),
             'recipient' => [
                 'name' => $name ?: BuyLabelConstants::DEFAULT_CUSTOMER_NAME,
                 'phone' => $order->phone ?: '',
@@ -422,7 +448,7 @@ class BuyLabelService
      */
     public function buyLabelForOrder(int $orderId, User $user): array
     {
-        Log::info("Manual buy label request", [
+        Log::info('Manual buy label request', [
             BuyLabelConstants::FIELD_ORDER_ID => $orderId,
             'user_id' => $user->id,
         ]);
@@ -431,10 +457,11 @@ class BuyLabelService
             // Load order
             $order = Order::with(['items.product', 'seller.profile'])->find($orderId);
 
-            if (!$order) {
+            if (! $order) {
                 Log::warning(BuyLabelConstants::ORDER_NOT_FOUND, [
-                    BuyLabelConstants::FIELD_ORDER_ID => $orderId
+                    BuyLabelConstants::FIELD_ORDER_ID => $orderId,
                 ]);
+
                 return [
                     'code' => HttpCode::NOT_FOUND,
                     'status' => false,
@@ -445,7 +472,7 @@ class BuyLabelService
             // Check authorization
             $authCheck = $this->checkAuthorization($order, $user);
 
-            if (!$authCheck['authorized']) {
+            if (! $authCheck['authorized']) {
                 return [
                     'code' => HttpCode::FORBIDDEN,
                     'status' => false,
@@ -455,7 +482,7 @@ class BuyLabelService
 
             // Validate order eligibility
             $eligibilityCheck = $this->checkOrderEligibility($order);
-            if (!$eligibilityCheck['eligible']) {
+            if (! $eligibilityCheck['eligible']) {
                 return [
                     'code' => HttpCode::BAD_REQUEST,
                     'status' => false,
@@ -463,8 +490,8 @@ class BuyLabelService
                 ];
             }
 
-            Log::info("Starting manual label creation", [
-                BuyLabelConstants::FIELD_ORDER_ID => $orderId
+            Log::info('Starting manual label creation', [
+                BuyLabelConstants::FIELD_ORDER_ID => $orderId,
             ]);
 
             // Prepare addresses
@@ -477,7 +504,7 @@ class BuyLabelService
             // Determine service code
             $serviceCode = $this->determineServiceCode($order);
 
-            Log::info("Calling Shippo API", [
+            Log::info('Calling Shippo API', [
                 BuyLabelConstants::FIELD_ORDER_ID => $orderId,
                 'service_code' => $serviceCode,
             ]);
@@ -490,7 +517,7 @@ class BuyLabelService
                 serviceCode: $serviceCode
             );
 
-            Log::info("Label created successfully", [
+            Log::info('Label created successfully', [
                 BuyLabelConstants::FIELD_ORDER_ID => $orderId,
                 BuyLabelConstants::FIELD_TRACKING_NUMBER => $response['tracking_number'] ?? null,
             ]);
@@ -508,18 +535,18 @@ class BuyLabelService
                     // Reload order to get latest shipping_label
                     $order->refresh();
                     \App\Jobs\ProcessOrderLabelShip::postLabelConvert($order);
-                    Log::info("Post label convert dispatched successfully", [
-                        'order_id' => $order->id
+                    Log::info('Post label convert dispatched successfully', [
+                        'order_id' => $order->id,
                     ]);
                 } catch (Exception $e) {
-                    Log::error("Post label convert failed", [
+                    Log::error('Post label convert failed', [
                         'order_id' => $order->id,
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ]);
                 }
             })->delay(now()->addSecond());
 
-            Log::info("Manual buy label completed", [
+            Log::info('Manual buy label completed', [
                 BuyLabelConstants::FIELD_ORDER_ID => $orderId,
                 'user_id' => $user->id,
             ]);
@@ -538,7 +565,7 @@ class BuyLabelService
                 ],
             ];
         } catch (Exception $e) {
-            Log::error("Manual buy label failed", [
+            Log::error('Manual buy label failed', [
                 BuyLabelConstants::FIELD_ORDER_ID => $orderId,
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
@@ -551,7 +578,7 @@ class BuyLabelService
             return [
                 'code' => HttpCode::SERVER_ERROR,
                 'status' => false,
-                'message' => BuyLabelConstants::LABEL_CREATION_FAILED . ': ' . $e->getMessage(),
+                'message' => BuyLabelConstants::LABEL_CREATION_FAILED.': '.$e->getMessage(),
             ];
         }
     }
@@ -561,7 +588,7 @@ class BuyLabelService
      */
     public function dispatchBatchBuyLabel(array $orderIds, User $user): array
     {
-        Log::info("Batch buy label request", [
+        Log::info('Batch buy label request', [
             'user_id' => $user->id,
             'order_ids' => $orderIds,
         ]);
@@ -573,7 +600,7 @@ class BuyLabelService
             // Verify user has access to all orders
             $query = Order::whereIn('id', $orderIds);
 
-            if (!$isAdmin) {
+            if (! $isAdmin) {
                 $query->where('seller_id', $user->id);
             }
 
@@ -584,6 +611,7 @@ class BuyLabelService
                     'requested' => count($orderIds),
                     'found' => $orders->count(),
                 ]);
+
                 return [
                     'code' => HttpCode::FORBIDDEN,
                     'status' => false,
@@ -598,21 +626,21 @@ class BuyLabelService
                     BuyLabelShipEngine::dispatch($order->id, $order->seller_id)
                         ->delay(now()->addSeconds($dispatched));
 
-                    Log::info("Batch job dispatched", [
+                    Log::info('Batch job dispatched', [
                         BuyLabelConstants::FIELD_ORDER_ID => $order->id,
                         'delay_seconds' => $dispatched,
                     ]);
 
                     $dispatched++;
                 } catch (Exception $e) {
-                    Log::error("Failed to dispatch batch job", [
+                    Log::error('Failed to dispatch batch job', [
                         BuyLabelConstants::FIELD_ORDER_ID => $order->id,
                         'error' => $e->getMessage(),
                     ]);
                 }
             }
 
-            Log::info("Batch buy label completed", [
+            Log::info('Batch buy label completed', [
                 'total_requested' => count($orderIds),
                 'total_dispatched' => $dispatched,
             ]);
@@ -627,7 +655,7 @@ class BuyLabelService
                 ],
             ];
         } catch (Exception $e) {
-            Log::error("Batch buy label failed", [
+            Log::error('Batch buy label failed', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
@@ -635,7 +663,7 @@ class BuyLabelService
             return [
                 'code' => HttpCode::SERVER_ERROR,
                 'status' => false,
-                'message' => BuyLabelConstants::BATCH_DISPATCH_FAILED . ': ' . $e->getMessage(),
+                'message' => BuyLabelConstants::BATCH_DISPATCH_FAILED.': '.$e->getMessage(),
             ];
         }
     }
@@ -651,7 +679,7 @@ class BuyLabelService
 
             $query = Order::with('seller.profile')->whereIn('id', $orderIds);
 
-            if (!$isAdmin) {
+            if (! $isAdmin) {
                 $query->where('seller_id', $user->id);
             }
 
@@ -689,14 +717,14 @@ class BuyLabelService
                 ],
             ];
         } catch (Exception $e) {
-            Log::error("Check eligible orders failed", [
+            Log::error('Check eligible orders failed', [
                 'error' => $e->getMessage(),
             ]);
 
             return [
                 'code' => HttpCode::SERVER_ERROR,
                 'status' => false,
-                'message' => BuyLabelConstants::CHECK_ELIGIBLE_FAILED . ': ' . $e->getMessage(),
+                'message' => BuyLabelConstants::CHECK_ELIGIBLE_FAILED.': '.$e->getMessage(),
             ];
         }
     }
@@ -709,7 +737,7 @@ class BuyLabelService
         $isAdmin = $user->role && strtolower($user->role->name) === 'admin';
         $isOwner = $order->seller_id === $user->id;
 
-        if (!$isOwner && !$isAdmin) {
+        if (! $isOwner && ! $isAdmin) {
             Log::warning(BuyLabelConstants::UNAUTHORIZED, [
                 BuyLabelConstants::FIELD_ORDER_ID => $order->id,
                 'user_id' => $user->id,
@@ -723,7 +751,7 @@ class BuyLabelService
         }
 
         // Check if seller has production permission
-        if (!$order->seller->profile || !$order->seller->profile->production) {
+        if (! $order->seller->profile || ! $order->seller->profile->production) {
             Log::warning(BuyLabelConstants::NO_PRODUCTION_PERMISSION, [
                 BuyLabelConstants::FIELD_ORDER_ID => $order->id,
                 'seller_id' => $order->seller_id,
@@ -745,11 +773,11 @@ class BuyLabelService
     {
         $reasons = [];
 
-        if (!empty($order->shipping_label)) {
+        if (! empty($order->shipping_label)) {
             $reasons[] = BuyLabelConstants::REASON_LABEL_EXISTS;
         }
 
-        if (!empty($order->tracking_id)) {
+        if (! empty($order->tracking_id)) {
             $reasons[] = BuyLabelConstants::REASON_TRACKING_EXISTS;
         }
 
@@ -757,7 +785,7 @@ class BuyLabelService
             $reasons[] = BuyLabelConstants::REASON_NO_ADDRESS;
         }
 
-        if (!$order->seller->profile || !$order->seller->profile->production) {
+        if (! $order->seller->profile || ! $order->seller->profile->production) {
             $reasons[] = BuyLabelConstants::REASON_NO_PERMISSION;
         }
 
@@ -780,7 +808,7 @@ class BuyLabelService
      */
     private function prepareToAddress(Order $order): array
     {
-        $fullName = trim(($order->first_name ?? '') . ' ' . ($order->last_name ?? ''));
+        $fullName = trim(($order->first_name ?? '').' '.($order->last_name ?? ''));
 
         $toAddress = [
             'name' => $fullName ?: BuyLabelConstants::DEFAULT_CUSTOMER_NAME,
@@ -792,11 +820,11 @@ class BuyLabelService
             'country_code' => $order->country ?? 'US',
         ];
 
-        if (!empty($order->phone)) {
+        if (! empty($order->phone)) {
             $toAddress['phone'] = $order->phone;
         }
 
-        Log::info("Prepared address", [
+        Log::info('Prepared address', [
             BuyLabelConstants::FIELD_ORDER_ID => $order->id,
             'to_address' => $toAddress,
         ]);
@@ -821,7 +849,7 @@ class BuyLabelService
 
         if ($totalWeightOz <= 0) {
             $totalWeightOz = BuyLabelConstants::DEFAULT_WEIGHT_OZ;
-            Log::warning("No product weight found, using default", [
+            Log::warning('No product weight found, using default', [
                 BuyLabelConstants::FIELD_ORDER_ID => $order->id,
                 'default_weight_oz' => $totalWeightOz,
             ]);
@@ -845,7 +873,7 @@ class BuyLabelService
             ],
         ];
 
-        Log::info("Package details", [
+        Log::info('Package details', [
             BuyLabelConstants::FIELD_ORDER_ID => $order->id,
             'weight_oz' => $totalWeightOz,
             'weight_lb' => $weightInPounds,
@@ -867,7 +895,7 @@ class BuyLabelService
             $serviceCode = BuyLabelConstants::SERVICE_PRIORITY_MAIL;
         }
 
-        Log::info("Service selected", [
+        Log::info('Service selected', [
             BuyLabelConstants::FIELD_ORDER_ID => $order->id,
             'shipping_method' => $order->shipping_method,
             'service_code' => $serviceCode,
@@ -897,7 +925,7 @@ class BuyLabelService
         $order->shipping_json = json_encode($response);
         $order->save();
 
-        Log::info("Order updated with label info", [
+        Log::info('Order updated with label info', [
             BuyLabelConstants::FIELD_ORDER_ID => $order->id,
             BuyLabelConstants::FIELD_LABEL_URL => $order->shipping_label,
             BuyLabelConstants::FIELD_TRACKING_NUMBER => $order->tracking_id,
@@ -921,7 +949,7 @@ class BuyLabelService
             'note' => $note,
         ]);
 
-        Log::info("Timeline entry created", [
+        Log::info('Timeline entry created', [
             BuyLabelConstants::FIELD_ORDER_ID => $order->id,
             'type' => $type,
         ]);
@@ -936,8 +964,9 @@ class BuyLabelService
             $chatId = config('services.telegram.chat_id');
             $botToken = config('services.telegram.bot_token');
 
-            if (!$chatId || !$botToken) {
+            if (! $chatId || ! $botToken) {
                 Log::warning('Telegram config missing');
+
                 return;
             }
 
@@ -947,7 +976,7 @@ class BuyLabelService
                     'text' => trim($text),
                 ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 Log::error('Telegram send failed', [
                     'status' => $response->status(),
                     'response' => $response->body(),
@@ -965,7 +994,7 @@ class BuyLabelService
      */
     private function sendSuccessNotification(int $orderId, string $trackingNumber): void
     {
-        $url = env('FRONTEND_URL', 'https://manage.lemiex.us') . "/orders?order_id={$orderId}";
+        $url = env('FRONTEND_URL', 'https://manage.lemiex.us')."/orders?order_id={$orderId}";
         $text = "Mua Label Thành Công (Manual)\n\nOrder ID: {$orderId}\nLink: {$url}\nTracking: {$trackingNumber}";
         $this->sendTelegramNotification($text);
     }
@@ -975,7 +1004,7 @@ class BuyLabelService
      */
     private function sendErrorNotification(int $orderId, string $error): void
     {
-        $url = env('FRONTEND_URL', 'https://manage.lemiex.us') . "/orders?order_id={$orderId}";
+        $url = env('FRONTEND_URL', 'https://manage.lemiex.us')."/orders?order_id={$orderId}";
         $text = "Mua Label Thất Bại ❌ (Manual)\n\nOrder ID: {$orderId}\nLink: {$url}\nLỗi: {$error}";
         $this->sendTelegramNotification($text);
     }
