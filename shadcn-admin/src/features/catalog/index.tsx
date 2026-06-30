@@ -141,7 +141,7 @@ function ProductCard({ product }: { product: CatalogProduct }) {
   const outOfStock = (product.total_stock ?? 0) <= 0
 
   return (
-    <Link href={`/lemiex/product-variants/${product.id}`} className='group block'>
+    <Link href={`/product/${product.id}`} className='group block'>
       <Card className='gap-0 overflow-hidden p-0 transition-shadow hover:shadow-md'>
         <div className='relative aspect-square overflow-hidden bg-muted'>
           {product.mockup ? (
