@@ -579,9 +579,17 @@ class ProductController extends Controller
     public function getProductsWithVariants(Request $request): JsonResponse
     {
         try {
-            $query = Product::with(['variants' => function ($q) {
-                $q->select('id', 'product_id', 'variant_id', 'sku', 'style', 'color', 'size', 'stock', 'active', 'supplier_price', 'weight', 'length', 'width', 'height');
-            }]);
+            $query = Product::with([
+                'variants' => function ($q) {
+                    $q->select('id', 'product_id', 'variant_id', 'sku', 'style', 'color', 'size', 'stock', 'active', 'supplier_price', 'weight', 'length', 'width', 'height');
+                },
+                // base_cost @ tier 0 — used to fall back the price range when no supplier_price is set
+                'variants.priceVariants' => function ($q) {
+                    $q->select('id', 'product_variant_id', 'tier_id', 'type', 'price')
+                        ->where('tier_id', 0)
+                        ->where('type', 'base_cost');
+                },
+            ]);
 
             // Search by product name, brand, or style
             if ($request->filled('search')) {
@@ -647,10 +655,22 @@ class ProductController extends Controller
                 $activeVariants = $variants->where('active', true)->count();
                 $totalVariants = $variants->count();
 
-                // Get price range
+                // Get price range (from supplier_price)
                 $prices = $variants->pluck('supplier_price')->filter();
                 $minPrice = $prices->min();
                 $maxPrice = $prices->max();
+
+                // Fallback: no supplier_price set → use base_cost @ tier 0 so a price still shows.
+                if ($minPrice === null && $maxPrice === null) {
+                    $baseCosts = $variants
+                        ->flatMap(fn ($v) => $v->priceVariants->pluck('price'))
+                        ->filter(fn ($p) => $p !== null)
+                        ->map(fn ($p) => (float) $p);
+                    if ($baseCosts->isNotEmpty()) {
+                        $minPrice = $baseCosts->min();
+                        $maxPrice = $baseCosts->max();
+                    }
+                }
 
                 return [
                     'id' => $product->id,
@@ -973,6 +993,21 @@ class ProductController extends Controller
             $prices = $variants->pluck('supplier_price')->filter();
             $minPrice = $prices->min();
             $maxPrice = $prices->max();
+
+            // Fallback: no supplier_price set → use base_cost @ tier 0.
+            if ($minPrice === null && $maxPrice === null) {
+                $baseCosts = $variants
+                    ->flatMap(fn ($v) => $v->priceVariants
+                        ->where('tier_id', 0)
+                        ->where('type', 'base_cost')
+                        ->pluck('price'))
+                    ->filter(fn ($p) => $p !== null)
+                    ->map(fn ($p) => (float) $p);
+                if ($baseCosts->isNotEmpty()) {
+                    $minPrice = $baseCosts->min();
+                    $maxPrice = $baseCosts->max();
+                }
+            }
 
             // Tier names mapping
             $tierNames = \App\Models\Tier::query()
