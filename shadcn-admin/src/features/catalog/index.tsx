@@ -109,7 +109,7 @@ export function Catalog() {
         {loading ? (
           <div className='grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'>
             {Array.from({ length: 10 }).map((_, i) => (
-              <Card key={i} className='gap-0 overflow-hidden p-0'>
+              <Card key={i} className='gap-0 overflow-hidden rounded-md p-0'>
                 <Skeleton className='aspect-[4/5] w-full rounded-none' />
                 <div className='space-y-2 p-3'>
                   <Skeleton className='h-4 w-3/4' />
@@ -119,7 +119,7 @@ export function Catalog() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className='flex flex-col items-center justify-center rounded-xl border border-dashed py-20 text-center'>
+          <div className='flex flex-col items-center justify-center rounded-md border border-dashed py-20 text-center'>
             <PackageSearch className='mb-3 size-9 text-muted-foreground/60' strokeWidth={1.5} />
             <p className='text-sm font-medium'>No products found</p>
             <p className='text-sm text-muted-foreground'>Try a different search.</p>
@@ -153,7 +153,7 @@ function ProductCard({ product }: { product: CatalogProduct }) {
 
   return (
     <Link href={`/product/${product.id}`} className='group block'>
-      <Card className='gap-0 overflow-hidden p-0 transition-shadow hover:shadow-md'>
+      <Card className='gap-0 overflow-hidden rounded-md p-0 transition-shadow hover:shadow-md'>
         <div className='relative aspect-[4/5] overflow-hidden bg-muted'>
           {product.mockup ? (
             // eslint-disable-next-line @next/next/no-img-element

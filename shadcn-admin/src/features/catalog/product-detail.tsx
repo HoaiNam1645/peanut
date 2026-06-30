@@ -152,7 +152,7 @@ export function CatalogProductDetail() {
       <Main>
         {loading ? (
           <div className='grid gap-7 lg:grid-cols-2'>
-            <Skeleton className='aspect-square rounded-2xl' />
+            <Skeleton className='aspect-square rounded-md' />
             <div className='space-y-4'>
               <Skeleton className='h-6 w-2/3' />
               <Skeleton className='h-9 w-1/3' />
@@ -162,7 +162,7 @@ export function CatalogProductDetail() {
           </div>
         ) : error ? (
           <div>
-            <div className='rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive'>
+            <div className='rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive'>
               {error}
             </div>
             <Link href='/' className='mt-4 inline-block text-sm font-medium text-primary hover:underline'>
@@ -241,7 +241,7 @@ function Detail({ data }: { data: ProductDetail }) {
       <div className='grid gap-7 lg:grid-cols-2'>
         {/* Gallery */}
         <div className='lg:sticky lg:top-20 lg:self-start'>
-          <div className='group relative aspect-square overflow-hidden rounded-2xl border bg-muted'>
+          <div className='group relative aspect-square overflow-hidden rounded-md border bg-muted'>
             {mainImg ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={mainImg} alt={product.name} className='h-full w-full object-cover' />
@@ -298,7 +298,7 @@ function Detail({ data }: { data: ProductDetail }) {
               href={product.template_url}
               target='_blank'
               rel='noopener noreferrer'
-              className='mt-3 flex items-center justify-center gap-2 rounded-lg border bg-card py-2.5 text-[13px] font-semibold text-foreground/80 transition hover:border-primary hover:text-primary'
+              className='mt-3 flex items-center justify-center gap-2 rounded-md border bg-card py-2.5 text-[13px] font-semibold text-foreground/80 transition hover:border-primary hover:text-primary'
             >
               <Download className='size-4' /> Download mockup &amp; template
             </a>
@@ -367,7 +367,7 @@ function Detail({ data }: { data: ProductDetail }) {
                       disabled={!available}
                       onClick={() => setSelSize(s)}
                       className={cn(
-                        'min-w-11 rounded-lg border px-3 py-2 text-[13px] font-semibold transition',
+                        'min-w-11 rounded-md border px-3 py-2 text-[13px] font-semibold transition',
                         selSize === s
                           ? 'border-primary bg-primary text-primary-foreground'
                           : 'bg-card text-foreground/80 hover:border-foreground/30',
@@ -443,7 +443,7 @@ function TierPricing({ variant }: { variant: Variant | null }) {
   const tp = variant?.tier_pricing
   if (!variant || !tp || Object.keys(tp).length === 0) {
     return (
-      <div className='rounded-2xl border bg-card p-5'>
+      <div className='rounded-md border bg-card p-5'>
         <h3 className='mb-1 text-sm font-bold'>Tier pricing</h3>
         <p className='text-[13px] text-muted-foreground'>
           {variant ? 'No tier pricing for this variant.' : 'Select a variant to see tier pricing.'}
@@ -460,7 +460,7 @@ function TierPricing({ variant }: { variant: Variant | null }) {
   const types = Array.from(new Set(tiers.flatMap((t) => Object.keys(tp[t] ?? {}))))
 
   return (
-    <div className='rounded-2xl border bg-card p-5'>
+    <div className='rounded-md border bg-card p-5'>
       <div className='mb-3'>
         <div className='flex items-center gap-2'>
           <h3 className='text-sm font-bold'>Tier pricing</h3>
@@ -474,7 +474,7 @@ function TierPricing({ variant }: { variant: Variant | null }) {
       {/* Mobile: per-tier cards */}
       <div className='grid grid-cols-2 gap-2.5 sm:hidden'>
         {tiers.map((t) => (
-          <div key={t} className='rounded-lg border bg-background/50 p-3'>
+          <div key={t} className='rounded-md border bg-background/50 p-3'>
             <div className='mb-2 text-[11px] font-semibold tracking-wider text-primary uppercase'>{t}</div>
             <dl className='space-y-1.5'>
               {types.map((ty) => {
