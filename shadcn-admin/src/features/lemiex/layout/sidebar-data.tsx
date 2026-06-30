@@ -2,6 +2,7 @@ import * as React from 'react'
 import {
   CalendarClock,
   FileClock,
+  Home,
   Link2,
   LayoutDashboard,
   Package,
@@ -117,6 +118,7 @@ const LEMIEX_SIDEBAR_LABELS = {
     operations: 'Vận hành',
     supportTools: 'Công cụ hỗ trợ',
     administration: 'Quản trị',
+    home: 'Trang chủ',
     dashboard: 'Bảng điều khiển',
     welcome: 'Chào mừng',
     orders: 'Đơn hàng',
@@ -164,6 +166,7 @@ const LEMIEX_SIDEBAR_LABELS = {
     operations: 'Operations',
     supportTools: 'Support Tools',
     administration: 'Administration',
+    home: 'Home',
     dashboard: 'Dashboard',
     welcome: 'Welcome',
     orders: 'Orders',
@@ -310,6 +313,11 @@ function createLemiexNavGroups(locale: AppLocale): NavGroup[] {
     {
       title: labels.overview,
       items: [
+        {
+          title: labels.home,
+          url: '/',
+          icon: Home,
+        },
         {
           title: labels.dashboard,
           url: '/lemiex/dashboard',
@@ -460,6 +468,9 @@ function hasAccess(role: string, path: string, permissionNames?: string[]) {
   // user — otherwise a user with no matching page permission is redirected here
   // and then blocked here too, producing a blank screen / redirect loop.
   if (path === '/lemiex/welcome') return true
+
+  // Catalog home (the public-style landing inside the admin) — always viewable.
+  if (path === '/') return true
 
   // Permission management UIs are Admin-only by design
   if (
