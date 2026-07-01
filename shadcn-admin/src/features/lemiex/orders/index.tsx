@@ -2,7 +2,7 @@
 
 import { type ComponentType, Fragment, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Tags, Truck } from 'lucide-react'
+import { Download, Plus, Tags, Truck } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
@@ -50,6 +50,7 @@ import {
   fetchOrderIds,
   fetchOrderFulfillStatusOptions,
   fetchOrders,
+  exportOrders,
   type SelectOption,
   type OrderListResult,
 } from '@/services/orders/api'
@@ -205,7 +206,7 @@ export function LemiexOrders() {
   const searchParams = useSearchParams()
   const currentUser = useAuthStore((state) => state.auth.user)
   const setUser = useAuthStore((state) => state.auth.setUser)
-  const { messages } = useI18n()
+  const { messages, locale } = useI18n()
   const ordersMessages = messages.orders
   const createOrderMessages = ordersMessages.createOrderDialog
 
@@ -388,6 +389,34 @@ export function LemiexOrders() {
       toast.error(
         error instanceof Error ? error.message : 'Không thể lấy danh sách IDs'
       )
+    }
+  }
+
+  const [exporting, setExporting] = useState(false)
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const blob = await exportOrders(buildOrdersRequest(state))
+      const url = window.URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T-]/g, '')
+      anchor.download = `orders_${stamp}.csv`
+      document.body.appendChild(anchor)
+      anchor.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(anchor)
+      toast.success(locale === 'vi' ? 'Đã xuất đơn hàng (CSV)' : 'Orders exported (CSV)')
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : locale === 'vi'
+            ? 'Không thể export đơn hàng'
+            : 'Failed to export orders'
+      )
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -589,6 +618,16 @@ export function LemiexOrders() {
 
           <div className='flex flex-wrap items-center gap-2'>
             <OrderDailyLimitCard />
+            <Button
+              type='button'
+              variant='outline'
+              className='rounded-[6px]'
+              onClick={() => void handleExport()}
+              disabled={exporting}
+            >
+              <Download className='size-4' />
+              {locale === 'vi' ? 'Xuất CSV' : 'Export CSV'}
+            </Button>
             {canCreateOrder ? (
               <Button
                 type='button'

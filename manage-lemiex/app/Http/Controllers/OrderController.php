@@ -1421,6 +1421,122 @@ class OrderController extends Controller
     }
 
     /**
+     * Export orders as a CSV, respecting the SAME filters + role scoping as
+     * getOrders(): a Seller gets only their own orders (seller_id scope), while
+     * Admin/Staff get all (and may narrow via the seller_id filter). Streamed +
+     * chunked so large exports stay memory-safe.
+     */
+    public function exportOrders(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $user = Auth::user();
+        $userRole = $user->role->name ?? null;
+
+        $query = Order::query()
+            ->with(['items:id,order_id,product_name,quantity'])
+            ->select([
+                'id',
+                'ref_id',
+                'seller_ref',
+                'created_at',
+                'fulfill_status',
+                'payment_status',
+                'order_type',
+                'total_cost',
+                'paid_cost',
+                'shipping_method',
+                'tracking_id',
+                'first_name',
+                'last_name',
+                'phone',
+                'address_1',
+                'city',
+                'state',
+                'postcode',
+                'country',
+                'note',
+            ]);
+
+        // Seller: only their own orders. Admin/Staff: all (no extra filter).
+        if ($userRole === UserRole::all()[UserRole::SELLER]) {
+            $query->where('seller_id', $user->id);
+        }
+
+        // Same filter logic as the list view (search, status, date range, etc.).
+        $this->applyOrderFilters($query, $request);
+
+        $sortBy = $request->input('sort_by', OrderConstants::DEFAULT_SORT_BY);
+        $sortOrder = $request->input('sort_order', OrderConstants::DEFAULT_SORT_ORDER);
+        // orderBy id as a tiebreaker so chunk() paginates deterministically.
+        $query->orderBy($sortBy, $sortOrder)->orderBy('id');
+
+        $filename = 'orders_' . now()->format('Ymd_His') . '.csv';
+
+        return response()->streamDownload(function () use ($query) {
+            $out = fopen('php://output', 'w');
+            // UTF-8 BOM so Excel opens accented/Vietnamese text correctly.
+            fwrite($out, "\xEF\xBB\xBF");
+
+            fputcsv($out, [
+                'Order Ref',
+                'Seller Ref',
+                'Date',
+                'Fulfill Status',
+                'Payment Status',
+                'Order Type',
+                'Products',
+                'Total Qty',
+                'Total Cost',
+                'Paid Cost',
+                'Shipping Method',
+                'Tracking',
+                'Recipient',
+                'Phone',
+                'Address',
+                'City',
+                'State',
+                'Postcode',
+                'Country',
+                'Note',
+            ]);
+
+            $query->chunk(500, function ($orders) use ($out) {
+                foreach ($orders as $order) {
+                    $products = $order->items
+                        ->map(fn ($it) => trim(($it->product_name ?? '') . ' x' . (int) $it->quantity))
+                        ->implode('; ');
+
+                    fputcsv($out, [
+                        $order->ref_id,
+                        $order->seller_ref,
+                        optional($order->created_at)->format('Y-m-d H:i'),
+                        $order->fulfill_status,
+                        $order->payment_status,
+                        $order->order_type,
+                        $products,
+                        (int) $order->items->sum('quantity'),
+                        $order->total_cost,
+                        $order->paid_cost,
+                        $order->shipping_method,
+                        $order->tracking_id,
+                        trim(($order->first_name ?? '') . ' ' . ($order->last_name ?? '')),
+                        $order->phone,
+                        $order->address_1,
+                        $order->city,
+                        $order->state,
+                        $order->postcode,
+                        $order->country,
+                        $order->note,
+                    ]);
+                }
+            });
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
      * Export URLs (PES, EMB, QR) for specific orders
      */
     public function exportOrderUrls(Request $request): JsonResponse

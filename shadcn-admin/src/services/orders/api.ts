@@ -372,6 +372,38 @@ export async function fetchOrders(params: OrdersQueryParams) {
   } satisfies OrderListResult
 }
 
+function readStoredOrdersToken() {
+  if (typeof window === 'undefined') return ''
+  return window.localStorage.getItem('lemiex_access_token') || ''
+}
+
+/**
+ * Export orders as CSV for the given filters. The backend applies the same
+ * role scoping as the list (a Seller only gets their own orders). Returns the
+ * CSV Blob for the caller to trigger a download.
+ */
+export async function exportOrders(params: OrdersQueryParams): Promise<Blob> {
+  const queryString = toQueryString(params)
+  const token = readStoredOrdersToken()
+  const response = await fetch(
+    `${API_BASE_URL}${API_ENDPOINTS.ORDERS}/export${queryString ? `?${queryString}` : ''}`,
+    {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        Accept: 'text/csv,application/octet-stream,*/*',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error('Không thể export đơn hàng')
+  }
+
+  return response.blob()
+}
+
 function mapListOptions(
   input: unknown,
   fallbackLabelKey?: string

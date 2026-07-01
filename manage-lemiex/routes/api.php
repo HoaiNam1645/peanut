@@ -83,6 +83,7 @@ Route::get('/orders/process-order', [OrderController::class, 'getProcessOrderSta
 Route::group(['prefix' => 'orders', 'middleware' => 'jwt.auth'], function () {
     Route::get('/', [OrderController::class, 'getOrders'])->middleware('permission:orders.view');
     Route::get('/ids', [OrderController::class, 'getOrderIds'])->middleware('permission:orders.export_ids');
+    Route::get('/export', [OrderController::class, 'exportOrders'])->middleware('permission:orders.view'); // Seller exports own orders (CSV, same filters + scoping as list)
     Route::put('/update', [OrderController::class, 'updateOrder'])->middleware('permission:orders.update');
     Route::get('/fulfill-statuses', [OrderFulfillStatusController::class, 'getFulfillStatuses'])->middleware('permission:orders.view');
     Route::get('/embroidery-types', [OrderController::class, 'getEmbroideryTypes']);
